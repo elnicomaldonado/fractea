@@ -1,3 +1,4 @@
+
 # Fractea Frontend
 
 This is the frontend application for the Fractea platform - a fractional real estate investment platform built on Mantle Sepolia blockchain.
@@ -50,3 +51,4 @@ The contract ABI and connection utilities are provided in:
 - Node.js 16+
 - MetaMask or compatible wallet
 - Access to Mantle Sepolia network 
+>>>>>>> 7f62ffa0 (Segunda versión del frontend: mejoras, sin node_modules)

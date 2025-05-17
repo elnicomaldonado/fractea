@@ -1,14 +1,19 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Fractea - Fractional Real Estate Investment',
-  description: 'Invest in real estate properties with fractional ownership',
+  title: 'Fractea - Inversión Inmobiliaria Fraccionada',
+  description: 'Invierte en propiedades inmobiliarias con participación fraccionada respaldado por blockchain',
+  viewport: 'width=device-width, initial-scale=1',
 }
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="es">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </head>
+      <body className="min-h-screen bg-gray-50">
         {children}
       </body>
     </html>

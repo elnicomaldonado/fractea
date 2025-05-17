@@ -8,6 +8,237 @@ import {
 // RPC URL for Mantle Sepolia
 const RPC_URL = "https://rpc.sepolia.mantle.xyz";
 
+// Función para guardar usuario completo en localStorage
+function saveUserToLocalStorage(email, user) {
+  try {
+    if (!email) {
+      console.error('Error al guardar usuario: email es undefined o null', { email, user });
+      return;
+    }
+    
+    if (!user || !user.userId) {
+      console.error('Error al guardar usuario: objeto de usuario inválido', { email, user });
+      return;
+    }
+    
+    const userDataString = JSON.stringify(user);
+    
+    // Guardar en localStorage con manejo de excepciones
+    localStorage.setItem('fractea_user_email', email);
+    localStorage.setItem('fractea_user_id', user.userId);
+    localStorage.setItem('fractea_user_data', userDataString);
+    
+    // Verificar que se guardó correctamente
+    const storedData = localStorage.getItem('fractea_user_data');
+    if (!storedData) {
+      console.error('Error: No se pudo verificar el guardado en localStorage');
+    } else {
+      console.log('Usuario guardado en localStorage con éxito:', { 
+        email, 
+        userId: user.userId,
+        dataLength: userDataString.length,
+        balances: user.balances,
+        claimable: user.claimable
+      });
+    }
+  } catch (error) {
+    console.error('Error inesperado al guardar en localStorage:', error);
+  }
+}
+
+// Simulación de wallets custodiadas - en un entorno real esto estaría en un backend seguro
+const SIMULATED_USERS = {
+  'demo@fractea.app': {
+    userId: 'user_demo123',
+    balances: {
+      1: 20, // 20 fracciones de la propiedad #1
+      2: 10  // 10 fracciones de la propiedad #2
+    },
+    claimable: {
+      1: '0.001', // 0.001 ETH reclamables de la propiedad #1
+      2: '0.0003'  // 0.0003 ETH reclamables de la propiedad #2
+    }
+  },
+  'test@fractea.app': {
+    userId: 'user_test456',
+    balances: {
+      1: 10, // 10 fracciones de la propiedad #1
+      2: 5   // 5 fracciones de la propiedad #2
+    },
+    claimable: {
+      1: '0.0005', // 0.0005 ETH reclamables de la propiedad #1
+      2: '0.0001'  // 0.0001 ETH reclamables de la propiedad #2
+    }
+  }
+};
+
+// Simulación de propiedades - información complementaria al smart contract
+const SIMULATED_PROPERTIES = {
+  1: {
+    totalSupply: 100,
+    totalRent: "0.01",
+    createdAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000) // 120 días atrás
+  },
+  2: {
+    totalSupply: 200,
+    totalRent: "0.003",
+    createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) // 60 días atrás
+  }
+};
+
+/**
+ * Asegura que exista un usuario reconstruyéndolo si es necesario
+ * @param {string} email - Email del usuario
+ * @param {string} context - Contexto de la llamada para logs
+ * @returns {Object|null} El usuario reconstruido o null si no fue posible
+ */
+function ensureUser(email, context = 'general') {
+  // Si ya existe el usuario, devolverlo
+  if (SIMULATED_USERS[email]) {
+    return SIMULATED_USERS[email];
+  }
+  
+  console.log(`Usuario no encontrado en ${context}, intentando reconstruir:`, { email });
+  
+  // Intentar reconstruir el usuario desde localStorage
+  const storedEmail = localStorage.getItem('fractea_user_email');
+  const storedUserId = localStorage.getItem('fractea_user_id');
+  const storedUserData = localStorage.getItem('fractea_user_data');
+  
+  if (storedEmail && storedEmail === email && storedUserId) {
+    console.log(`Reconstruyendo usuario desde localStorage para ${context}`);
+    
+    if (storedUserData) {
+      try {
+        // Usar los datos completos almacenados en localStorage
+        SIMULATED_USERS[email] = JSON.parse(storedUserData);
+        console.log(`Usuario reconstruido desde datos completos para ${context}:`, SIMULATED_USERS[email]);
+      } catch (error) {
+        console.error(`Error al parsear datos de usuario de localStorage:`, error);
+        // Fallback a valores por defecto
+        SIMULATED_USERS[email] = {
+          userId: storedUserId,
+          balances: { 1: 5, 2: 3 },
+          claimable: { 1: '0.0002', 2: '0.0001' }
+        };
+      }
+    } else {
+      // Caso legacy: crear el usuario con valores predeterminados
+      SIMULATED_USERS[email] = {
+        userId: storedUserId,
+        balances: { 1: 5, 2: 3 },
+        claimable: { 1: '0.0002', 2: '0.0001' }
+      };
+    }
+    
+    return SIMULATED_USERS[email];
+  }
+  
+  console.error(`No se pudo reconstruir el usuario en ${context}`);
+  return null;
+}
+
+/**
+ * Obtiene el usuario actual del localStorage
+ */
+export function getCurrentUser() {
+  try {
+    const email = localStorage.getItem('fractea_user_email');
+    const userId = localStorage.getItem('fractea_user_id');
+    const storedUserData = localStorage.getItem('fractea_user_data');
+    
+    console.log('getCurrentUser - datos de localStorage:', { 
+      email, 
+      userId, 
+      hasStoredData: !!storedUserData 
+    });
+    
+    if (!email || !userId) {
+      console.log('No hay usuario en localStorage');
+      return null;
+    }
+    
+    // Intentar usar los datos completos de localStorage primero
+    if (storedUserData) {
+      try {
+        const userData = JSON.parse(storedUserData);
+        
+        // Siempre actualizar SIMULATED_USERS con los datos más recientes
+        SIMULATED_USERS[email] = userData;
+        
+        console.log('Usuario recuperado de localStorage:', { 
+          email, 
+          userId, 
+          balances: userData.balances,
+          claimable: userData.claimable
+        });
+        
+        return {
+          email,
+          userId,
+          ...userData
+        };
+      } catch (error) {
+        console.error('Error al parsear datos de usuario en getCurrentUser:', error);
+      }
+    }
+    
+    // Fallback: Reconstruir desde memoria
+    console.log('Fallback: usando ensureUser para reconstruir usuario');
+    ensureUser(email, 'getCurrentUser');
+    
+    if (SIMULATED_USERS[email]) {
+      return {
+        email,
+        userId,
+        ...SIMULATED_USERS[email]
+      };
+    }
+    
+    console.error('No se pudo recuperar datos de usuario válidos');
+    return null;
+  } catch (error) {
+    console.error('Error inesperado en getCurrentUser:', error);
+    return null;
+  }
+}
+
+/**
+ * Login simulado con email
+ * @param {string} email - Email del usuario
+ */
+export async function loginWithEmail(email) {
+  if (!SIMULATED_USERS[email]) {
+    // Crear un nuevo usuario simulado si no existe
+    const newUserId = `user_${Math.random().toString(36).substring(2, 10)}`;
+    SIMULATED_USERS[email] = {
+      userId: newUserId,
+      balances: { 
+        1: 5,  // Usuario nuevo obtiene 5 fracciones en propiedad #1
+        2: 3   // Usuario nuevo obtiene 3 fracciones en propiedad #2
+      },
+      claimable: { 
+        1: '0.0002', // Usuario nuevo tiene 0.0002 ETH reclamables en propiedad #1
+        2: '0.0001'  // Usuario nuevo tiene 0.0001 ETH reclamables en propiedad #2
+      }
+    };
+  }
+  
+  // Guardar usuario completo en localStorage
+  saveUserToLocalStorage(email, SIMULATED_USERS[email]);
+  
+  return SIMULATED_USERS[email];
+}
+
+/**
+ * Cerrar sesión
+ */
+export function logout() {
+  localStorage.removeItem('fractea_user_email');
+  localStorage.removeItem('fractea_user_id');
+  localStorage.removeItem('fractea_user_data');
+}
+
 /**
  * Creates a read-only provider for querying blockchain data
  */
@@ -32,41 +263,274 @@ export function getWriteContract(wallet) {
 }
 
 /**
- * Get property details
+ * Get property details from the contract (real blockchain data)
  * @param {number} propertyId - ID of the property
  */
 export async function getPropertyDetails(propertyId) {
   const contract = getReadOnlyContract();
-  const property = await contract.properties(propertyId);
+  try {
+    const property = await contract.properties(propertyId);
+    
+    return {
+      id: propertyId,
+      totalSupply: Number(property.totalSupply),
+      totalRent: ethers.formatEther(property.totalRent),
+      createdAt: new Date(Number(property.createdAt) * 1000),
+    };
+  } catch (error) {
+    console.error("Error getting property details:", error);
+    // Fallback para demo usando datos simulados
+    if (SIMULATED_PROPERTIES[propertyId]) {
+      return {
+        id: propertyId,
+        ...SIMULATED_PROPERTIES[propertyId]
+      };
+    }
+    
+    // Datos por defecto si no hay información específica
+    return {
+      id: propertyId,
+      totalSupply: 100,
+      totalRent: "0.0",
+      createdAt: new Date()
+    };
+  }
+}
+
+/**
+ * Get user's balance for a property (simulated)
+ * @param {string} email - User's email
+ * @param {number} propertyId - ID of the property
+ */
+export async function getUserBalance(email, propertyId) {
+  const user = ensureUser(email, 'getUserBalance');
+  
+  if (!user || !user.balances || !user.balances[propertyId]) {
+    return 0;
+  }
+  
+  return user.balances[propertyId];
+}
+
+/**
+ * Get claimable rent amount (simulated)
+ * @param {number} propertyId - ID of the property
+ * @param {string} email - User's email
+ */
+export async function getClaimableRent(propertyId, email) {
+  const user = ensureUser(email, 'getClaimableRent');
+  
+  if (!user || !user.claimable || !user.claimable[propertyId]) {
+    return '0';
+  }
+  
+  return user.claimable[propertyId];
+}
+
+/**
+ * Simulates claiming rent via relayer
+ * @param {number} propertyId - ID of the property
+ * @param {string} email - User's email
+ */
+export async function claimRentViaRelayer(propertyId, email) {
+  // Simular una espera de procesamiento de blockchain
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  console.log('Intentando reclamar renta:', { propertyId, email });
+  
+  if (!email) {
+    console.error('Error: email no proporcionado para reclamar renta');
+    throw new Error('Email no proporcionado para reclamar renta');
+  }
+  
+  // Obtener o reconstruir el usuario desde localStorage primero (más actualizado)
+  let user = null;
+  
+  // Intentar obtener datos directamente de localStorage primero
+  const storedEmail = localStorage.getItem('fractea_user_email');
+  const storedUserData = localStorage.getItem('fractea_user_data');
+  
+  if (storedEmail === email && storedUserData) {
+    try {
+      user = JSON.parse(storedUserData);
+      console.log('Usuario recuperado de localStorage para reclamar renta:', user);
+      
+      // Actualizar SIMULATED_USERS con los datos más recientes
+      SIMULATED_USERS[email] = user;
+    } catch (error) {
+      console.error('Error al parsear datos de usuario para reclamar renta:', error);
+    }
+  }
+  
+  // Si no pudimos obtener el usuario de localStorage, usar ensureUser
+  if (!user) {
+    console.log('Utilizando ensureUser como fallback para reclamar renta');
+    user = ensureUser(email, 'claimRentViaRelayer');
+  }
+  
+  if (!user) {
+    console.error('No se pudo procesar la reclamación de renta: usuario no encontrado');
+    throw new Error("No se pudo procesar la reclamación de renta: usuario no encontrado");
+  }
+  
+  // Asegurar que existe la estructura de datos
+  if (!user.claimable) {
+    user.claimable = {};
+  }
+  
+  // Reiniciar el monto reclamable a 0
+  const claimed = user.claimable[propertyId] || '0';
+  user.claimable[propertyId] = '0';
+  
+  // Guardar los cambios en localStorage
+  saveUserToLocalStorage(email, user);
+  
+  // Verificar que se guardó correctamente
+  const verificationData = localStorage.getItem('fractea_user_data');
+  if (verificationData) {
+    try {
+      const verifiedUser = JSON.parse(verificationData);
+      console.log('Verificación post-reclamo:', {
+        guardadoCorrectamente: !!verifiedUser && 
+                              !!verifiedUser.claimable && 
+                              verifiedUser.claimable[propertyId] === '0',
+        claimableEsperado: '0',
+        claimableGuardado: verifiedUser.claimable ? verifiedUser.claimable[propertyId] : 'no existe'
+      });
+    } catch (error) {
+      console.error('Error al verificar datos post-reclamo:', error);
+    }
+  } else {
+    console.error('Error crítico: No se encontraron datos en localStorage después de guardar reclamo');
+  }
+  
+  // Guardar en el historial de rentas
+  if (parseFloat(claimed) > 0) {
+    saveRentHistory(email, propertyId, claimed);
+  }
+  
+  console.log('Renta reclamada exitosamente:', {
+    propertyId,
+    claimed,
+    nuevoBalance: user.claimable[propertyId]
+  });
+  
+  // Actualizar SIMULATED_USERS para asegurar sincronización
+  SIMULATED_USERS[email] = user;
   
   return {
-    id: propertyId,
-    totalSupply: Number(property.totalSupply),
-    totalRent: ethers.formatEther(property.totalRent),
-    createdAt: new Date(Number(property.createdAt) * 1000),
+    success: true,
+    amount: claimed,
+    txHash: '0x' + Math.random().toString(16).substring(2, 34)
   };
 }
 
 /**
- * Get user's balance for a property
- * @param {string} address - User's address
- * @param {number} propertyId - ID of the property
+ * Simula una inversión en una propiedad
+ * @param {number} propertyId - ID de la propiedad
+ * @param {string} email - Email del usuario
+ * @param {number} amount - Monto en USD
  */
-export async function getUserBalance(address, propertyId) {
-  const contract = getReadOnlyContract();
-  const balance = await contract.balanceOf(address, propertyId);
-  return Number(balance);
-}
-
-/**
- * Get claimable rent amount
- * @param {number} propertyId - ID of the property
- * @param {string} address - User's address
- */
-export async function getClaimableRent(propertyId, address) {
-  const contract = getReadOnlyContract();
-  const claimable = await contract.calculateClaimable(propertyId, address);
-  return ethers.formatEther(claimable);
+export async function investInProperty(propertyId, email, amount) {
+  // Simular delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  console.log('Intentando invertir:', { propertyId, email, amount });
+  
+  if (!email) {
+    console.error('Error: email no proporcionado para inversión');
+    throw new Error('Email no proporcionado para inversión');
+  }
+  
+  // Obtener o reconstruir el usuario desde localStorage primero (más actualizado)
+  let user = null;
+  
+  // Intentar obtener datos directamente de localStorage primero
+  const storedEmail = localStorage.getItem('fractea_user_email');
+  const storedUserData = localStorage.getItem('fractea_user_data');
+  
+  if (storedEmail === email && storedUserData) {
+    try {
+      user = JSON.parse(storedUserData);
+      console.log('Usuario recuperado de localStorage para inversión:', user);
+      
+      // Actualizar SIMULATED_USERS con los datos más recientes
+      SIMULATED_USERS[email] = user;
+    } catch (error) {
+      console.error('Error al parsear datos de usuario para inversión:', error);
+    }
+  }
+  
+  // Si no pudimos obtener el usuario de localStorage, usar ensureUser
+  if (!user) {
+    console.log('Utilizando ensureUser como fallback para inversión');
+    user = ensureUser(email, 'investInProperty');
+  }
+  
+  if (!user) {
+    console.error(`Usuario no encontrado para inversión (email: ${email})`);
+    throw new Error(`Usuario no encontrado (email: ${email})`);
+  }
+  
+  // Fracción precio para cada propiedad (datos simulados)
+  const fractionPrices = {
+    1: 10, // $10 USD
+    2: 15  // $15 USD
+  };
+  
+  const fractionPrice = fractionPrices[propertyId] || 10;
+  const fractionCount = Math.floor(amount / fractionPrice);
+  
+  // Asegurar que existe la estructura de datos
+  if (!user.balances) {
+    user.balances = {};
+  }
+  
+  // Actualizar balance
+  if (!user.balances[propertyId]) {
+    user.balances[propertyId] = fractionCount;
+  } else {
+    user.balances[propertyId] += fractionCount;
+  }
+  
+  // Guardar los cambios en localStorage
+  saveUserToLocalStorage(email, user);
+  
+  // Verificar que se guardó correctamente
+  const verificationData = localStorage.getItem('fractea_user_data');
+  if (verificationData) {
+    try {
+      const verifiedUser = JSON.parse(verificationData);
+      console.log('Verificación post-inversión:', {
+        guardadoCorrectamente: !!verifiedUser && 
+                              !!verifiedUser.balances && 
+                              verifiedUser.balances[propertyId] === user.balances[propertyId],
+        balanceEsperado: user.balances[propertyId],
+        balanceGuardado: verifiedUser.balances ? verifiedUser.balances[propertyId] : 'no existe'
+      });
+    } catch (error) {
+      console.error('Error al verificar datos post-inversión:', error);
+    }
+  } else {
+    console.error('Error crítico: No se encontraron datos en localStorage después de guardar');
+  }
+  
+  console.log('Inversión exitosa:', {
+    propertyId,
+    fractionCount,
+    newBalance: user.balances[propertyId]
+  });
+  
+  // Actualizar SIMULATED_USERS para asegurar sincronización
+  SIMULATED_USERS[email] = user;
+  
+  return {
+    success: true,
+    propertyId,
+    addedFractions: fractionCount,
+    totalFractions: user.balances[propertyId],
+    txHash: '0x' + Math.random().toString(16).substring(2, 34)
+  };
 }
 
 /**
@@ -96,4 +560,113 @@ export async function connectWallet() {
     address: accounts[0],
     signer
   };
+}
+
+/**
+ * Guarda un nuevo registro en el historial de rentas de un usuario para una propiedad
+ * @param {string} email - Email del usuario
+ * @param {number} propertyId - ID de la propiedad
+ * @param {string} amount - Monto reclamado en ETH
+ * @returns {Object} El registro añadido al historial
+ */
+export function saveRentHistory(email, propertyId, amount) {
+  try {
+    if (!email || !propertyId || !amount) {
+      console.error('Error: parámetros incompletos para saveRentHistory', { email, propertyId, amount });
+      return null;
+    }
+    
+    const newRecord = {
+      date: new Date(),
+      amount,
+      status: 'completed'
+    };
+    
+    // Recuperar historial existente
+    const currentHistory = getRentHistory(email, propertyId);
+    
+    // Añadir el nuevo registro al principio del array
+    const updatedHistory = [newRecord, ...currentHistory];
+    
+    // Obtener o crear el objeto completo de historiales
+    let allHistory = {};
+    const storedHistory = localStorage.getItem('fractea_user_rent_history');
+    
+    if (storedHistory) {
+      try {
+        allHistory = JSON.parse(storedHistory);
+      } catch (error) {
+        console.error('Error al parsear historial de rentas existente:', error);
+        allHistory = {};
+      }
+    }
+    
+    // Asegurar que existe la estructura para el usuario
+    if (!allHistory[email]) {
+      allHistory[email] = {};
+    }
+    
+    // Guardar el historial actualizado
+    allHistory[email][propertyId] = updatedHistory;
+    
+    // Guardar en localStorage
+    localStorage.setItem('fractea_user_rent_history', JSON.stringify(allHistory));
+    
+    console.log('Historial de rentas actualizado:', {
+      email,
+      propertyId,
+      newRecord,
+      historialActualizado: updatedHistory
+    });
+    
+    return newRecord;
+  } catch (error) {
+    console.error('Error inesperado al guardar historial de rentas:', error);
+    return null;
+  }
+}
+
+/**
+ * Recupera el historial de rentas de un usuario para una propiedad
+ * @param {string} email - Email del usuario
+ * @param {number} propertyId - ID de la propiedad
+ * @returns {Array} Array de registros de historial
+ */
+export function getRentHistory(email, propertyId) {
+  try {
+    if (!email || !propertyId) {
+      console.warn('Parámetros incompletos para getRentHistory', { email, propertyId });
+      return [];
+    }
+    
+    const storedHistory = localStorage.getItem('fractea_user_rent_history');
+    
+    if (!storedHistory) {
+      // Si no hay historial almacenado, devolver array vacío
+      return [];
+    }
+    
+    try {
+      const allHistory = JSON.parse(storedHistory);
+      
+      // Verificar si existe historial para este usuario y propiedad
+      if (!allHistory[email] || !allHistory[email][propertyId]) {
+        return [];
+      }
+      
+      // Convertir strings de fecha a objetos Date
+      const history = allHistory[email][propertyId].map(record => ({
+        ...record,
+        date: new Date(record.date)
+      }));
+      
+      return history;
+    } catch (error) {
+      console.error('Error al parsear historial de rentas:', error);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error inesperado al recuperar historial de rentas:', error);
+    return [];
+  }
 } 
