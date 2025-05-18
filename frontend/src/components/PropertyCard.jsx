@@ -202,23 +202,65 @@ export default function PropertyCard({ propertyId, user }) {
   const handleInvest = async () => {
     setIsInvesting(true);
     setInvestSuccess(null);
+    setError(null);
     
     try {
+      // Usar el monto de la inversión de la propiedad
+      const investmentAmount = propertyInfo.minimumInvestment || 1000;
+      
+      // Mostrar un mensaje de proceso
+      console.log(`Iniciando inversión de $${investmentAmount} en propiedad #${propertyId}`);
+      
       // Utilizar la función de inversión
-      const result = await investInProperty(propertyId, user.email, 1000);
+      const result = await investInProperty(propertyId, user.email, investmentAmount);
       
       // Actualizar el balance del usuario
       setUserBalance(result.totalFractions);
       
-      // Mostrar mensaje de éxito
+      // Calcular el costo por fracción
+      const fractionPrice = propertyInfo.fractionPrice || (investmentAmount / result.addedFractions);
+      
+      // Mostrar mensaje de éxito con datos más completos
       setInvestSuccess({
-        amount: 1000,
+        amount: investmentAmount,
         fractions: result.addedFractions,
-        txHash: result.txHash
+        fractionPrice: fractionPrice.toFixed(2),
+        txHash: result.txHash,
+        tokenId: result.tokenId,
+        tokenType: result.tokenType
       });
+      
+      // Emitir evento para analytics
+      if (window.gtag) {
+        window.gtag('event', 'investment_success', {
+          property_id: propertyId,
+          amount: investmentAmount,
+          fractions: result.addedFractions
+        });
+      }
     } catch (err) {
-      setError("Error al procesar la inversión. Intente de nuevo más tarde.");
       console.error("Error investing:", err);
+      
+      // Mensaje de error más amigable basado en el tipo de error
+      let errorMessage = "Error al procesar la inversión. Intente de nuevo más tarde.";
+      
+      if (err.message.includes('No se encontró wallet custodial')) {
+        errorMessage = "No se encontró una wallet asociada a tu cuenta. Por favor, contacta a soporte.";
+      } else if (err.message.includes('fondos insuficientes') || err.message.includes('insufficient funds')) {
+        errorMessage = "Fondos insuficientes para completar la inversión. Por favor, añade fondos a tu wallet.";
+      } else if (err.message.includes('transacción rechazada') || err.message.includes('transaction rejected')) {
+        errorMessage = "La transacción fue rechazada por la red. Por favor, intenta nuevamente.";
+      }
+      
+      setError(errorMessage);
+      
+      // Emitir evento para analytics de error
+      if (window.gtag) {
+        window.gtag('event', 'investment_error', {
+          property_id: propertyId,
+          error_message: err.message
+        });
+      }
     } finally {
       setIsInvesting(false);
     }
@@ -344,10 +386,37 @@ export default function PropertyCard({ propertyId, user }) {
               : 'bg-emerald-500/20 border border-emerald-500/30'
           }`}>
             {investSuccess && (
-              <p>✓ Inversión exitosa: {investSuccess.fractions} fracciones por ${investSuccess.amount}</p>
+              <div>
+                <p className="font-medium">✓ Inversión exitosa</p>
+                <p>{investSuccess.fractions} fracciones por ${investSuccess.amount}</p>
+                <p className="text-xs text-white/70 mt-1">
+                  {investSuccess.tokenType} #{investSuccess.tokenId} | 
+                  <a 
+                    href={`https://explorer.sepolia.mantle.xyz/tx/${investSuccess.txHash}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="ml-1 text-white/90 hover:text-white"
+                  >
+                    Ver transacción
+                  </a>
+                </p>
+              </div>
             )}
             {claimSuccess && (
-              <p>✓ Renta cobrada: {claimSuccess.amount} ETH</p>
+              <div>
+                <p className="font-medium">✓ Renta cobrada</p>
+                <p>{claimSuccess.amount} ETH</p>
+                <p className="text-xs text-white/70 mt-1">
+                  <a 
+                    href={`https://explorer.sepolia.mantle.xyz/tx/${claimSuccess.txHash}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-white/90 hover:text-white"
+                  >
+                    Ver transacción
+                  </a>
+                </p>
+              </div>
             )}
           </div>
         )}

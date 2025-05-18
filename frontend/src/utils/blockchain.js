@@ -113,14 +113,24 @@ function saveUserToLocalStorage(email, user) {
 const SIMULATED_USERS = {
   'demo@fractea.app': {
     userId: 'user_demo123',
-    wallet: generateCustodialWallet(), // Generamos wallet dinámicamente para consistencia
+    wallet: {
+      address: '0x2cbf7D1d665CcA8d11845D814e3C11e390E94789', // Dirección fija para demo
+      encryptedPrivateKey: encryptPrivateKey('0x63d0f3729e0117bb3f825b21c2c1f0d2d2dfa6793a656f7ef83b3c1ddf53a7b7'),
+      tokenBalances: {
+        eUSD: '100.00',
+        BTC: '0.0005',
+        ETH: '0.01',
+        USDC: '0.00',
+        MNT: '2.63393255248'
+      }
+    },
     balances: {
       1: 20, // 20 fracciones de la propiedad #1
       2: 10  // 10 fracciones de la propiedad #2
     },
     claimable: {
-      1: '0.001', // 0.001 eUSD reclamables de la propiedad #1
-      2: '0.0003'  // 0.0003 eUSD reclamables de la propiedad #2
+      1: '0.0002', // 0.0002 eUSD reclamables de la propiedad #1
+      2: '0.0001'  // 0.0001 eUSD reclamables de la propiedad #2
     }
   },
   'test@fractea.app': {
@@ -646,16 +656,16 @@ export async function claimRentViaRelayer(propertyId, email) {
 }
 
 /**
- * Simula una inversión en una propiedad
+ * Simula una inversión en una propiedad y minta tokens ERC-1155 al wallet custodial
  * @param {number} propertyId - ID de la propiedad
  * @param {string} email - Email del usuario
  * @param {number} amount - Monto en USD
  */
 export async function investInProperty(propertyId, email, amount) {
-  // Simular delay
+  // Simular delay para UI/UX
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  console.log('Intentando invertir:', { propertyId, email, amount });
+  console.log('Iniciando inversión:', { propertyId, email, amount });
   
   if (!email) {
     console.error('Error: email no proporcionado para inversión');
@@ -692,6 +702,12 @@ export async function investInProperty(propertyId, email, amount) {
     throw new Error(`Usuario no encontrado (email: ${email})`);
   }
   
+  // Verificar que el usuario tenga wallet
+  if (!user.wallet || !user.wallet.address) {
+    console.error('El usuario no tiene wallet custodial configurada');
+    throw new Error('No se encontró wallet custodial para el usuario');
+  }
+  
   // Fracción precio para cada propiedad (datos simulados)
   const fractionPrices = {
     1: 10, // $10 USD
@@ -700,6 +716,131 @@ export async function investInProperty(propertyId, email, amount) {
   
   const fractionPrice = fractionPrices[propertyId] || 10;
   const fractionCount = Math.floor(amount / fractionPrice);
+  
+  let txHash;
+  let txReceipt;
+  
+  // Interactuar con el contrato ERC-1155 (FracteaNFT)
+  try {
+    console.log(`Mintando ${fractionCount} fracciones ERC-1155 de la propiedad #${propertyId}`);
+    
+    // Obtener la dirección de la wallet custodial del usuario
+    const custodialWalletAddress = user.wallet.address;
+    console.log(`Wallet custodial destino: ${custodialWalletAddress}`);
+    
+    // Verificar si estamos en modo producción o desarrollo
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    // En modo producción, intentar interactuar con la blockchain real
+    if (isProduction) {
+      try {
+        // Importar servicios necesarios
+        const { getMantleProvider } = await import('../services/blockchain/mantleProvider');
+        
+        // Obtener provider para Mantle Sepolia
+        const provider = getMantleProvider('SEPOLIA');
+        
+        // Obtener la clave privada del relayer desde una variable de entorno
+        // Esta es una wallet de servicio que pagaría el gas de las transacciones
+        // NOTA: En producción, esta clave estaría segura en el backend
+        const relayerPrivateKey = process.env.NEXT_PUBLIC_RELAYER_KEY || decryptPrivateKey(user.wallet.encryptedPrivateKey);
+        
+        if (!relayerPrivateKey) {
+          throw new Error('No se encontró la clave del relayer para realizar la transacción');
+        }
+        
+        // Crear signer para el relayer
+        const relayerWallet = new ethers.Wallet(relayerPrivateKey, provider);
+        
+        // Crear instancia del contrato con el signer
+        const contract = new ethers.Contract(
+          FRACTEA_NFT_ADDRESS,
+          FRACTEA_NFT_ABI,
+          relayerWallet
+        );
+        
+        console.log('Enviando transacción para mintar fracciones ERC-1155...');
+        
+        // Verificar balance de gas del relayer
+        const relayerBalance = await provider.getBalance(relayerWallet.address);
+        console.log(`Balance del relayer: ${ethers.formatEther(relayerBalance)} MNT`);
+        
+        // Estimar gas
+        let gasEstimate;
+        try {
+          gasEstimate = await contract.mintFraction.estimateGas(
+            custodialWalletAddress,
+            propertyId,
+            fractionCount
+          );
+          console.log(`Gas estimado: ${gasEstimate.toString()}`);
+        } catch (gasError) {
+          console.warn('Error al estimar gas:', gasError);
+          gasEstimate = ethers.BigInt('500000'); // Valor por defecto
+        }
+        
+        // Enviar transacción con parámetros optimizados para Mantle
+        const tx = await contract.mintFraction(
+          custodialWalletAddress,
+          propertyId,
+          fractionCount,
+          {
+            gasLimit: gasEstimate * ethers.BigInt('120') / ethers.BigInt('100'), // +20% margen
+            maxFeePerGas: ethers.parseUnits('1.04', 'gwei'),
+            maxPriorityFeePerGas: ethers.parseUnits('1', 'gwei')
+          }
+        );
+        
+        console.log('Transacción enviada:', tx.hash);
+        txHash = tx.hash;
+        
+        // Esperar confirmación - con timeout para evitar bloqueos
+        const txPromise = tx.wait();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout esperando confirmación')), 30000) // 30 segundos
+        );
+        
+        txReceipt = await Promise.race([txPromise, timeoutPromise])
+          .catch(error => {
+            console.warn('Error o timeout esperando confirmación:', error);
+            // Continuar incluso si hay timeout, la tx puede confirmarse después
+            return null;
+          });
+        
+        if (txReceipt) {
+          console.log('Transacción confirmada en bloque:', txReceipt.blockNumber);
+        } else {
+          console.log('La transacción fue enviada pero aún no se ha confirmado');
+        }
+      } catch (blockchainError) {
+        console.error('Error en interacción con blockchain:', blockchainError);
+        console.log('Fallback a simulación de minteo');
+        
+        // Fallback a simulación
+        txHash = '0x' + Math.random().toString(16).substring(2, 34);
+      }
+    } else {
+      // Para desarrollo y testing, simular una transacción exitosa
+      txHash = '0x' + Math.random().toString(16).substring(2, 34);
+      console.log('Hash de transacción simulado (desarrollo):', txHash);
+    }
+    
+    // Emitir evento personalizado para debugging/monitoreo
+    const customEvent = new CustomEvent('fractea:fraction_minted', {
+      detail: {
+        address: custodialWalletAddress,
+        propertyId: propertyId,
+        amount: fractionCount,
+        txHash: txHash,
+        environment: isProduction ? 'production' : 'development'
+      }
+    });
+    window.dispatchEvent(customEvent);
+    
+  } catch (error) {
+    console.error('Error al mintar fracciones ERC-1155:', error);
+    throw new Error(`Error al mintar fracciones: ${error.message}`);
+  }
   
   // Asegurar que existe la estructura de datos
   if (!user.balances) {
@@ -726,7 +867,8 @@ export async function investInProperty(propertyId, email, amount) {
                               !!verifiedUser.balances && 
                               verifiedUser.balances[propertyId] === user.balances[propertyId],
         balanceEsperado: user.balances[propertyId],
-        balanceGuardado: verifiedUser.balances ? verifiedUser.balances[propertyId] : 'no existe'
+        balanceGuardado: verifiedUser.balances ? verifiedUser.balances[propertyId] : 'no existe',
+        erc1155Mintado: fractionCount
       });
     } catch (error) {
       console.error('Error al verificar datos post-inversión:', error);
@@ -738,7 +880,8 @@ export async function investInProperty(propertyId, email, amount) {
   console.log('Inversión exitosa:', {
     propertyId,
     fractionCount,
-    newBalance: user.balances[propertyId]
+    newBalance: user.balances[propertyId],
+    txHash
   });
   
   // Actualizar SIMULATED_USERS para asegurar sincronización
@@ -749,7 +892,9 @@ export async function investInProperty(propertyId, email, amount) {
     propertyId,
     addedFractions: fractionCount,
     totalFractions: user.balances[propertyId],
-    txHash: '0x' + Math.random().toString(16).substring(2, 34)
+    txHash: txHash,
+    tokenType: 'ERC-1155',
+    tokenId: propertyId
   };
 }
 

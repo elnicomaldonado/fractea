@@ -6,6 +6,7 @@ import Dashboard from '../components/Dashboard';
 import { getCurrentUser } from '../utils/blockchain';
 import PropertyCard from '../components/PropertyCard';
 import AdminPanel from '../components/AdminPanel';
+import { toast } from 'react-toastify';
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -74,6 +75,14 @@ export default function Home() {
     setShowAdmin(prev => !prev);
   };
 
+  // Función para probar los toasts
+  const testToast = () => {
+    toast.success('¡Este es un mensaje de prueba!', {
+      position: "bottom-right",
+      autoClose: 5000,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex justify-center items-center bg-gray-50">
@@ -90,6 +99,16 @@ export default function Home() {
       {!user ? (
         <div className="py-16 px-4">
           <LoginForm onLoginSuccess={handleLoginSuccess} />
+          
+          {/* Botón de prueba para toasts (solo desarrollo) */}
+          <div className="mt-8 text-center">
+            <button 
+              onClick={testToast}
+              className="text-sm text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100 hover:bg-indigo-100"
+            >
+              Probar notificaciones
+            </button>
+          </div>
         </div>
       ) : (
         <div className="py-8 px-4 md:px-8">

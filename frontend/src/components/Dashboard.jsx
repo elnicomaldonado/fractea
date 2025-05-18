@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import { logout, syncWalletBalance } from '../utils/blockchain';
 import WalletActions from './WalletActions';
 import WalletEducation from './WalletEducation';
@@ -40,9 +41,19 @@ export default function Dashboard({ user, onLogout }) {
       }));
       
       console.log('Balance sincronizado correctamente:', result.tokenBalances);
+      
+      // Notificación de balance removida para evitar confusión con otras notificaciones
     } catch (error) {
       console.error('Error al sincronizar balance:', error);
       setSyncError(error.message || 'Error desconocido al sincronizar');
+      
+      // Mostrar solo errores críticos
+      if (error.message && !error.message.includes('rate limit') && !error.message.includes('timeout')) {
+        toast.error(`Error al sincronizar balance: ${error.message}`, {
+          position: "bottom-right",
+          autoClose: 3000
+        });
+      }
     } finally {
       setIsSyncing(false);
     }

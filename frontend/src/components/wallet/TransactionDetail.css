@@ -1,0 +1,170 @@
+/* Estilos para TransactionDetail */
+
+.transaction-detail {
+  background-color: #000;
+  color: white;
+  border-radius: 20px;
+  padding: 24px;
+  max-width: 450px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Ícono y encabezado */
+.transaction-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.transaction-amount {
+  font-size: 48px;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 8px;
+}
+
+.transaction-type {
+  font-size: 20px;
+  font-weight: 500;
+  text-align: center;
+  margin: 0 0 8px;
+  opacity: 0.8;
+}
+
+.transaction-recipient {
+  font-size: 16px;
+  text-align: center;
+  margin: 0 0 24px;
+  opacity: 0.6;
+}
+
+/* Badge de estado */
+.status-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  padding: 8px 16px;
+  border-radius: 50px;
+  width: fit-content;
+  font-weight: 500;
+  font-size: 14px;
+  gap: 6px;
+}
+
+.bg-green-500 {
+  background-color: #10B981;
+}
+
+.bg-yellow-500 {
+  background-color: #F59E0B;
+}
+
+.bg-red-500 {
+  background-color: #EF4444;
+}
+
+.bg-gray-500 {
+  background-color: #6B7280;
+}
+
+/* Detalles de transacción */
+.transaction-details {
+  background-color: #111;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.detail-value-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-value {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Botón de copia */
+.copy-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.copy-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Enlace al explorador */
+.explorer-link {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.explorer-link a {
+  color: #9333EA;
+  text-decoration: none;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.explorer-link a:hover {
+  text-decoration: underline;
+}
+
+/* Botón compartir */
+.share-button {
+  width: 100%;
+  background-color: #111;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 12px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.share-button:hover {
+  background-color: #222;
+}
+
+/* Estado de carga */
+.loading {
+  text-align: center;
+  padding: 24px;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+} 

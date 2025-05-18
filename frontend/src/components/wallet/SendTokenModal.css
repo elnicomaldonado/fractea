@@ -1,0 +1,252 @@
+/* Estilos para el modal de envío de tokens */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.send-token-modal {
+  background-color: #0F0F0F;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 450px;
+  padding: 24px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.modal-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.close-button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.close-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.text-input,
+.token-select,
+.amount-input {
+  width: 100%;
+  background-color: #1A1A1A;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.text-input:focus,
+.token-select:focus,
+.amount-input:focus {
+  outline: none;
+  border-color: #9333EA;
+}
+
+.amount-input-container {
+  display: flex;
+  align-items: center;
+  background-color: #1A1A1A;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.amount-input {
+  border: none;
+  border-radius: 0;
+  flex: 1;
+}
+
+.token-symbol {
+  padding: 0 16px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.error-message {
+  color: #EF4444;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.web25-note {
+  background-color: rgba(147, 51, 234, 0.1);
+  border-left: 3px solid #9333EA;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.web25-note p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancel-button {
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.submit-button {
+  background-color: #9333EA;
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.submit-button:hover {
+  background-color: #8923d8;
+}
+
+.submit-button:disabled,
+.cancel-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Estilos para el resultado exitoso */
+.tx-success {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.success-icon {
+  width: 64px;
+  height: 64px;
+  background-color: rgba(16, 185, 129, 0.2);
+  color: #10B981;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin: 0 auto 20px;
+}
+
+.tx-success h3 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.tx-success p {
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 20px;
+}
+
+.tx-details {
+  background-color: #1A1A1A;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.tx-hash {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.tx-hash span {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tx-hash code {
+  font-family: monospace;
+}
+
+.explorer-link {
+  display: inline-block;
+  color: #9333EA;
+  text-decoration: none;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.explorer-link:hover {
+  text-decoration: underline;
+}
+
+.action-button {
+  background-color: #9333EA;
+  border: none;
+  color: white;
+  padding: 10px 30px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-button:hover {
+  background-color: #8923d8;
+} 

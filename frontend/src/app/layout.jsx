@@ -1,4 +1,6 @@
 import './globals.css';
+import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer } from 'react-toastify';
 
 export const metadata = {
   title: 'Fractea - Inversión Inmobiliaria Fraccionada',
@@ -15,6 +17,18 @@ export default function RootLayout({ children }) {
       </head>
       <body className="min-h-screen bg-gray-50">
         {children}
+        <ToastContainer
+          position="bottom-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="dark"
+        />
       </body>
     </html>
   )

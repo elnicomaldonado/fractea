@@ -1,0 +1,41 @@
+Claro, aquí tienes:
+
+⸻
+
+Prompt para Cursor (sin código, para crear instrucciones claras y concisas)
+
+Actúa como un asistente técnico para un proyecto web3 con wallet custodial y manejo de fondos. 
+
+Genera instrucciones paso a paso, claras y concisas, para implementar:
+
+1. Creación automática de wallet custodial al login por email, guardando wallet y clave privada encriptada asociadas al usuario.
+2. Función que permita transferir fondos internamente y externamente (a wallet externa).
+3. Interfaz de usuario para registro, saldo, depósito, retiro y manejo de tokens.
+4. Configuración para firmar y enviar transacciones reales en blockchain Mantle.
+5. Estrategia futura para educar usuarios sobre creación de wallets propias y transferencia desde wallet custodial.
+
+Limita cada paso a tareas concretas y fáciles de entender, sin incluir código. Prioriza claridad para que un desarrollador pueda seguirlas.
+
+Fin del prompt.
+
+
+⸻
+
+Task List para seguimiento del proyecto
+
+Paso	Tarea	Descripción breve	Estado
+1	Generar wallet custodial en login por email	Crear wallet + almacenar dirección y clave privada encriptada asociadas al usuario	⬜
+1	Guardar info wallet de forma segura	Asegurar almacenamiento protegido (simulado o base de datos)	⬜
+2	Implementar función de transferencia interna	Mover fondos dentro del sistema sin blockchain	⬜
+2	Implementar función de transferencia externa	Enviar fondos desde wallet custodial a wallet externa	⬜
+2	Validar saldo antes de transferir	Asegurar que el usuario tenga fondos suficientes	⬜
+3	Crear UI para registro y login con email	Interfaz simple para que usuario cree cuenta y acceda	⬜
+3	Crear UI para visualizar saldo	Mostrar saldo actual del usuario en wallet custodial	⬜
+3	Crear UI para agregar fondos (depósitos)	Permitir usuario ingresar fondos a su wallet custodial	⬜
+3	Crear UI para retiro de fondos	Permitir enviar fondos a wallet externa o cuenta bancaria	⬜
+3	Añadir opción para manejar diferentes tokens (USDC, USDT, BTC, ETH)	Selección de criptomonedas para depósito o retiro	⬜
+4	Configurar conexión blockchain (Mantle)	Conectar backend con red Mantle para enviar transacciones	⬜
+4	Implementar firma y envío de transacciones reales	Firmar con clave privada y enviar fondos a wallet externa	⬜
+4	Manejar estado y errores de transacción	Controlar confirmaciones y errores para mostrar en UI	⬜
+5	Crear plan educativo para usuarios	Tutoriales para que usuarios creen y manejen wallets propias	⬜
+5	Permitir transferencia desde wallet custodial a wallet privada	Habilitar que usuario mueva fondos a su wallet personal	⬜

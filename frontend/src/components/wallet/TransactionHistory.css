@@ -1,0 +1,181 @@
+/* Estilos para TransactionHistory */
+
+.transaction-history {
+  background-color: #000;
+  color: white;
+  border-radius: 20px;
+  padding: 24px;
+  max-width: 500px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.transaction-history-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  text-align: center;
+}
+
+/* Filtros */
+.transaction-filters {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 10px;
+}
+
+.filter-dropdown {
+  flex: 1;
+}
+
+.filter-dropdown select {
+  width: 100%;
+  background-color: #111;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+/* Lista de transacciones */
+.transaction-list {
+  background-color: #111;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.transaction-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.transaction-item:last-child {
+  border-bottom: none;
+}
+
+.transaction-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.transaction-item-icon {
+  margin-right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transaction-item-details {
+  flex: 1;
+}
+
+.transaction-item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.transaction-item-type {
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.transaction-item-address {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+}
+
+.transaction-item-date {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 4px;
+}
+
+.transaction-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.transaction-item-amount {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+/* Status badge (específico para este componente) */
+.transaction-item .status-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+/* Paginación */
+.transaction-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.pagination-button {
+  background-color: #111;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.pagination-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Estado vacío */
+.transaction-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  background-color: #111;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.empty-icon {
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.transaction-history-empty h3 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+
+.transaction-history-empty p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+} 

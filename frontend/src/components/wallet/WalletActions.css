@@ -1,0 +1,110 @@
+/* Estilos para acciones de wallet */
+
+.wallet-actions-container {
+  margin-top: 20px;
+}
+
+.main-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.action-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: none;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.primary-action {
+  background-color: #9333EA;
+  color: white;
+}
+
+.secondary-action {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.button-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+/* Badge de Web 2.5 */
+.web25-badge {
+  display: flex;
+  align-items: center;
+  background-color: rgba(147, 51, 234, 0.1);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.badge-icon {
+  background-color: #9333EA;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+}
+
+.badge-text {
+  color: #9333EA;
+  font-weight: 500;
+}
+
+/* Tooltip */
+.badge-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  background-color: #0F0F0F;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  width: 250px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s;
+  pointer-events: none;
+  z-index: 10;
+  margin-bottom: 8px;
+}
+
+.badge-tooltip p {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.badge-tooltip p:last-child {
+  margin-bottom: 0;
+}
+
+.web25-badge:hover .badge-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .main-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .secondary-action {
+    grid-column: span 2;
+  }
+} 
