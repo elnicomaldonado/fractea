@@ -212,7 +212,7 @@ Este proyecto está licenciado bajo la licencia MIT - ver el archivo [LICENSE](L
 
 ---
 
-*Este proyecto fue creado como parte de [ETH Global LATAM] y está en fase de prototipo.*
+*Este proyecto fue creado como parte de [Núcleo - Buildathon] y está en fase de prototipo.*
 
 ### Pruebas en Blockchain Real (Opcional)
 
