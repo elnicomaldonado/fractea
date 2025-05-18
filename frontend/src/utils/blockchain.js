@@ -8,6 +8,67 @@ import {
 // RPC URL for Mantle Sepolia
 const RPC_URL = "https://rpc.sepolia.mantle.xyz";
 
+// Función simple para encriptar claves privadas (en producción usar una solución más segura)
+function encryptPrivateKey(privateKey) {
+  // Esta es una simulación simple, en producción se usaría una encriptación real
+  // La clave de encriptación vendría de una variable de entorno o un servicio seguro
+  const encryptionKey = "FRACTEA_SECRET_KEY";
+  // Simple XOR para simulación, NO USAR EN PRODUCCIÓN
+  return Array.from(privateKey).map(char => 
+    String.fromCharCode(char.charCodeAt(0) ^ encryptionKey.charCodeAt(0))
+  ).join('');
+}
+
+// Función para desencriptar claves privadas
+function decryptPrivateKey(encryptedKey) {
+  // La misma operación XOR revertirá la encriptación simulada
+  const encryptionKey = "FRACTEA_SECRET_KEY";
+  return Array.from(encryptedKey).map(char => 
+    String.fromCharCode(char.charCodeAt(0) ^ encryptionKey.charCodeAt(0))
+  ).join('');
+}
+
+// Generar una nueva wallet custodial
+export function generateCustodialWallet() {
+  try {
+    // Generar una wallet aleatoria usando ethers.js
+    const wallet = ethers.Wallet.createRandom();
+    
+    console.log('Wallet generada exitosamente:', {
+      address: wallet.address
+    });
+    
+    return {
+      address: wallet.address,
+      // Encriptar la clave privada antes de almacenarla
+      encryptedPrivateKey: encryptPrivateKey(wallet.privateKey),
+      // Inicializar balance de tokens (simulado)
+      tokenBalances: {
+        eUSD: '100.00', // 100 eUSD para empezar
+        BTC: '0.0005',  // Una pequeña cantidad de BTC simulado
+        ETH: '0.01'     // Una pequeña cantidad de ETH simulado
+      }
+    };
+  } catch (error) {
+    console.error('Error al generar wallet custodial con ethers.js:', error);
+    
+    // Crear una dirección fija simulada
+    const fallbackAddress = '0x1234567890123456789012345678901234567890';
+    console.log('Usando dirección de wallet de fallback:', fallbackAddress);
+    
+    // Retornar wallet simulada en caso de error
+    return {
+      address: fallbackAddress,
+      encryptedPrivateKey: "encryptedKey123",
+      tokenBalances: {
+        eUSD: '100.00',
+        BTC: '0.0005',
+        ETH: '0.01'
+      }
+    };
+  }
+}
+
 // Función para guardar usuario completo en localStorage
 function saveUserToLocalStorage(email, user) {
   try {
@@ -38,7 +99,9 @@ function saveUserToLocalStorage(email, user) {
         userId: user.userId,
         dataLength: userDataString.length,
         balances: user.balances,
-        claimable: user.claimable
+        claimable: user.claimable,
+        // Mostrar información de wallet si existe
+        walletAddress: user.wallet?.address || 'No wallet'
       });
     }
   } catch (error) {
@@ -50,24 +113,42 @@ function saveUserToLocalStorage(email, user) {
 const SIMULATED_USERS = {
   'demo@fractea.app': {
     userId: 'user_demo123',
+    wallet: {
+      address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
+      encryptedPrivateKey: encryptPrivateKey('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'),
+      tokenBalances: {
+        eUSD: '500.00',
+        BTC: '0.002',
+        ETH: '0.5'
+      }
+    },
     balances: {
       1: 20, // 20 fracciones de la propiedad #1
       2: 10  // 10 fracciones de la propiedad #2
     },
     claimable: {
-      1: '0.001', // 0.001 ETH reclamables de la propiedad #1
-      2: '0.0003'  // 0.0003 ETH reclamables de la propiedad #2
+      1: '0.001', // 0.001 eUSD reclamables de la propiedad #1
+      2: '0.0003'  // 0.0003 eUSD reclamables de la propiedad #2
     }
   },
   'test@fractea.app': {
     userId: 'user_test456',
+    wallet: {
+      address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+      encryptedPrivateKey: encryptPrivateKey('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'),
+      tokenBalances: {
+        eUSD: '250.00',
+        BTC: '0.001',
+        ETH: '0.2'
+      }
+    },
     balances: {
       1: 10, // 10 fracciones de la propiedad #1
       2: 5   // 5 fracciones de la propiedad #2
     },
     claimable: {
-      1: '0.0005', // 0.0005 ETH reclamables de la propiedad #1
-      2: '0.0001'  // 0.0001 ETH reclamables de la propiedad #2
+      1: '0.0005', // 0.0005 eUSD reclamables de la propiedad #1
+      2: '0.0001'  // 0.0001 eUSD reclamables de la propiedad #2
     }
   }
 };
@@ -118,6 +199,7 @@ function ensureUser(email, context = 'general') {
         // Fallback a valores por defecto
         SIMULATED_USERS[email] = {
           userId: storedUserId,
+          wallet: generateCustodialWallet(), // Generar nueva wallet si hay error
           balances: { 1: 5, 2: 3 },
           claimable: { 1: '0.0002', 2: '0.0001' }
         };
@@ -126,6 +208,7 @@ function ensureUser(email, context = 'general') {
       // Caso legacy: crear el usuario con valores predeterminados
       SIMULATED_USERS[email] = {
         userId: storedUserId,
+        wallet: generateCustodialWallet(), // Generar nueva wallet
         balances: { 1: 5, 2: 3 },
         claimable: { 1: '0.0002', 2: '0.0001' }
       };
@@ -208,26 +291,119 @@ export function getCurrentUser() {
  * @param {string} email - Email del usuario
  */
 export async function loginWithEmail(email) {
-  if (!SIMULATED_USERS[email]) {
-    // Crear un nuevo usuario simulado si no existe
-    const newUserId = `user_${Math.random().toString(36).substring(2, 10)}`;
-    SIMULATED_USERS[email] = {
-      userId: newUserId,
-      balances: { 
-        1: 5,  // Usuario nuevo obtiene 5 fracciones en propiedad #1
-        2: 3   // Usuario nuevo obtiene 3 fracciones en propiedad #2
-      },
-      claimable: { 
-        1: '0.0002', // Usuario nuevo tiene 0.0002 ETH reclamables en propiedad #1
-        2: '0.0001'  // Usuario nuevo tiene 0.0001 ETH reclamables en propiedad #2
+  try {
+    console.log(`Iniciando sesión con ${email}`);
+    
+    // Verificar si ya existe el usuario
+    if (!SIMULATED_USERS[email]) {
+      console.log(`Usuario ${email} no existe, creando nuevo usuario`);
+      
+      // Crear un nuevo usuario simulado con ID único
+      const newUserId = `user_${Math.random().toString(36).substring(2, 10)}`;
+      
+      // Generar la wallet y verificar su creación
+      let wallet = generateCustodialWallet();
+      
+      if (!wallet || !wallet.address) {
+        console.error('Error crítico: No se pudo generar la wallet custodial');
+        
+        // Usar wallet de fallback
+        wallet = {
+          address: '0xFallbackWalletAfterFailure1234567890',
+          encryptedPrivateKey: 'fallback_key',
+          tokenBalances: {
+            eUSD: '100.00',
+            BTC: '0.0005',
+            ETH: '0.01'
+          }
+        };
       }
-    };
+      
+      console.log(`Usuario nuevo creado para ${email}:`, {
+        userId: newUserId,
+        walletAddress: wallet.address
+      });
+      
+      // Crear la estructura de datos completa del usuario
+      SIMULATED_USERS[email] = {
+        userId: newUserId,
+        wallet: wallet,
+        balances: { 
+          1: 5,  // Usuario nuevo obtiene 5 fracciones en propiedad #1
+          2: 3   // Usuario nuevo obtiene 3 fracciones en propiedad #2
+        },
+        claimable: { 
+          1: '0.0002', // Usuario nuevo tiene 0.0002 eUSD reclamables en propiedad #1
+          2: '0.0001'  // Usuario nuevo tiene 0.0001 eUSD reclamables en propiedad #2
+        }
+      };
+    } else {
+      console.log(`Usuario ${email} encontrado en memoria`);
+      
+      // Si el usuario existe pero no tiene wallet, generarle una
+      if (!SIMULATED_USERS[email].wallet) {
+        console.log(`Usuario ${email} existe pero no tiene wallet, generando una`);
+        
+        let wallet = generateCustodialWallet();
+        
+        // Verificar que la wallet se creó correctamente
+        if (!wallet || !wallet.address) {
+          console.error('Error crítico: No se pudo generar la wallet custodial para usuario existente');
+          
+          // Usar wallet de fallback
+          SIMULATED_USERS[email].wallet = {
+            address: '0xFallbackWalletForExistingUser1234567890',
+            encryptedPrivateKey: 'fallback_key',
+            tokenBalances: {
+              eUSD: '100.00',
+              BTC: '0.0005',
+              ETH: '0.01'
+            }
+          };
+        } else {
+          SIMULATED_USERS[email].wallet = wallet;
+        }
+      }
+    }
+    
+    // Verificar que el usuario tenga wallet antes de guardarlo
+    if (!SIMULATED_USERS[email].wallet) {
+      console.error(`Error crítico: Usuario ${email} no tiene wallet antes de guardar`);
+      
+      // Asignar wallet de emergencia
+      SIMULATED_USERS[email].wallet = {
+        address: '0xEmergencyWalletBeforeSave1234567890',
+        encryptedPrivateKey: 'emergency_key',
+        tokenBalances: {
+          eUSD: '100.00',
+          BTC: '0.0005',
+          ETH: '0.01'
+        }
+      };
+    }
+    
+    // Guardar usuario completo en localStorage
+    saveUserToLocalStorage(email, SIMULATED_USERS[email]);
+    
+    // Verificar que se guardó correctamente
+    const userFromStorage = localStorage.getItem('fractea_user_data');
+    if (userFromStorage) {
+      try {
+        const parsed = JSON.parse(userFromStorage);
+        console.log(`Verificación después de guardar:`, {
+          tieneWallet: !!parsed.wallet,
+          direccionWallet: parsed.wallet?.address
+        });
+      } catch (e) {
+        console.error('Error al verificar el guardado:', e);
+      }
+    }
+    
+    return SIMULATED_USERS[email];
+  } catch (error) {
+    console.error('Error en loginWithEmail:', error);
+    throw error;
   }
-  
-  // Guardar usuario completo en localStorage
-  saveUserToLocalStorage(email, SIMULATED_USERS[email]);
-  
-  return SIMULATED_USERS[email];
 }
 
 /**
@@ -669,4 +845,171 @@ export function getRentHistory(email, propertyId) {
     console.error('Error inesperado al recuperar historial de rentas:', error);
     return [];
   }
+}
+
+/**
+ * Obtiene el balance de un token específico para un usuario
+ * @param {string} email - Email del usuario
+ * @param {string} tokenSymbol - Símbolo del token (eUSD, BTC, ETH, etc.)
+ * @returns {string} Balance del token
+ */
+export async function getTokenBalance(email, tokenSymbol) {
+  const user = ensureUser(email, 'getTokenBalance');
+  
+  if (!user || !user.wallet || !user.wallet.tokenBalances || !user.wallet.tokenBalances[tokenSymbol]) {
+    return '0.00';
+  }
+  
+  return user.wallet.tokenBalances[tokenSymbol];
+}
+
+/**
+ * Simula un depósito de tokens a la wallet custodial del usuario
+ * @param {string} email - Email del usuario
+ * @param {string} tokenSymbol - Símbolo del token a depositar
+ * @param {string} amount - Cantidad a depositar
+ * @returns {Object} Resultado de la operación
+ */
+export async function depositTokens(email, tokenSymbol, amount) {
+  // Simular delay de procesamiento
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const user = ensureUser(email, 'depositTokens');
+  
+  if (!user) {
+    throw new Error('Usuario no encontrado');
+  }
+  
+  // Asegurar que la wallet y el balance de tokens existan
+  if (!user.wallet) {
+    user.wallet = generateCustodialWallet();
+  }
+  
+  if (!user.wallet.tokenBalances) {
+    user.wallet.tokenBalances = {};
+  }
+  
+  if (!user.wallet.tokenBalances[tokenSymbol]) {
+    user.wallet.tokenBalances[tokenSymbol] = '0.00';
+  }
+  
+  // Convertir a número para hacer la suma
+  const currentBalance = parseFloat(user.wallet.tokenBalances[tokenSymbol]);
+  const amountToAdd = parseFloat(amount);
+  
+  // Actualizar el balance
+  user.wallet.tokenBalances[tokenSymbol] = (currentBalance + amountToAdd).toFixed(2);
+  
+  // Guardar en localStorage
+  saveUserToLocalStorage(email, user);
+  
+  // Actualizar en memoria
+  SIMULATED_USERS[email] = user;
+  
+  // Retornar información de la transacción
+  const txHash = '0x' + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+  
+  return {
+    success: true,
+    txHash,
+    amount,
+    newBalance: user.wallet.tokenBalances[tokenSymbol],
+    tokenSymbol,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
+ * Simula un retiro de tokens de la wallet custodial del usuario
+ * @param {string} email - Email del usuario
+ * @param {string} tokenSymbol - Símbolo del token a retirar
+ * @param {string} amount - Cantidad a retirar
+ * @param {string} destination - Dirección de destino o 'bank' para retiro bancario
+ * @returns {Object} Resultado de la operación
+ */
+export async function withdrawTokens(email, tokenSymbol, amount, destination) {
+  // Simular delay de procesamiento
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  const user = ensureUser(email, 'withdrawTokens');
+  
+  if (!user || !user.wallet || !user.wallet.tokenBalances) {
+    throw new Error('Wallet de usuario no encontrada');
+  }
+  
+  // Obtener el balance actual
+  const currentBalance = parseFloat(user.wallet.tokenBalances[tokenSymbol] || '0.00');
+  const amountToWithdraw = parseFloat(amount);
+  
+  // Verificar que haya suficientes fondos
+  if (currentBalance < amountToWithdraw) {
+    throw new Error(`Balance insuficiente. Tienes ${currentBalance} ${tokenSymbol}`);
+  }
+  
+  // Actualizar el balance
+  user.wallet.tokenBalances[tokenSymbol] = (currentBalance - amountToWithdraw).toFixed(2);
+  
+  // Guardar en localStorage
+  saveUserToLocalStorage(email, user);
+  
+  // Actualizar en memoria
+  SIMULATED_USERS[email] = user;
+  
+  // Retornar información de la transacción
+  const txHash = destination.startsWith('0x') 
+    ? '0x' + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10)
+    : 'BANK_TRANSFER_' + Math.random().toString(36).substring(2, 10);
+  
+  return {
+    success: true,
+    txHash,
+    amount,
+    destination,
+    newBalance: user.wallet.tokenBalances[tokenSymbol],
+    tokenSymbol,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
+ * Transfiere tokens entre usuarios o hacia una wallet externa
+ * @param {string} fromEmail - Email del usuario que envía
+ * @param {string} tokenSymbol - Símbolo del token a transferir
+ * @param {string} amount - Cantidad a transferir
+ * @param {string} toAddress - Dirección de destino o email de usuario
+ * @returns {Object} Resultado de la operación
+ */
+export async function transferTokens(fromEmail, tokenSymbol, amount, toAddress) {
+  // Simular delay de procesamiento
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Verificar si el destino es una dirección o un email
+  const isAddress = toAddress.startsWith('0x');
+  const isEmail = toAddress.includes('@');
+  
+  // Si es una dirección externa, usar withdrawTokens
+  if (isAddress) {
+    return await withdrawTokens(fromEmail, tokenSymbol, amount, toAddress);
+  }
+  
+  // Si es un email, realizar transferencia interna
+  if (isEmail) {
+    // Retirar los fondos del emisor
+    const withdrawResult = await withdrawTokens(fromEmail, tokenSymbol, amount, 'internal_transfer');
+    
+    // Depositar los fondos al receptor
+    const depositResult = await depositTokens(toAddress, tokenSymbol, amount);
+    
+    return {
+      success: true,
+      fromEmail,
+      toEmail: toAddress,
+      amount,
+      tokenSymbol,
+      txHash: 'INTERNAL_' + Math.random().toString(36).substring(2, 10),
+      timestamp: new Date().toISOString()
+    };
+  }
+  
+  throw new Error('Destino inválido. Debe ser una dirección o un email');
 } 
