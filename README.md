@@ -61,7 +61,7 @@ En la demo puedes:
 
 1. **Clonar el repositorio**
    ```bash
-   git clone https://github.com/nicmaldonado/fractea.git
+   git clone https://github.com/elnicomaldonado/fractea.git
    cd fractea
    ```
 
