@@ -1,14 +1,52 @@
-import { useState } from 'react';
-import { logout } from '../utils/blockchain';
+import { useState, useEffect } from 'react';
+import { logout, syncWalletBalance } from '../utils/blockchain';
 import WalletActions from './WalletActions';
 import WalletEducation from './WalletEducation';
 import DebugPanel from './DebugPanel';
 
 export default function Dashboard({ user, onLogout }) {
-  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('properties'); // 'properties' o 'wallet'
   const [showWalletActions, setShowWalletActions] = useState(false);
   const [showWalletEducation, setShowWalletEducation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [userState, setUser] = useState(user);
+  const [syncError, setSyncError] = useState(null);
+  
+  // Sincronizar balance automáticamente al cargar
+  useEffect(() => {
+    if (userState?.email) {
+      handleSyncBalance();
+    }
+  }, []);
+  
+  // Función para sincronizar balance
+  const handleSyncBalance = async () => {
+    if (!userState?.email) return;
+    
+    setIsSyncing(true);
+    setSyncError(null);
+    
+    try {
+      const result = await syncWalletBalance(userState.email);
+      
+      // Actualizar estado local con los balances actualizados
+      setUser(prev => ({
+        ...prev,
+        wallet: {
+          ...prev.wallet,
+          tokenBalances: result.tokenBalances
+        }
+      }));
+      
+      console.log('Balance sincronizado correctamente:', result.tokenBalances);
+    } catch (error) {
+      console.error('Error al sincronizar balance:', error);
+      setSyncError(error.message || 'Error desconocido al sincronizar');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   
   const handleLogout = () => {
     setIsLoading(true);
@@ -18,16 +56,17 @@ export default function Dashboard({ user, onLogout }) {
   };
   
   // Manejar actualizaciones de wallet
-  const handleWalletAction = (action, result) => {
+  const handleWalletAction = async (action, result) => {
     console.log(`Acción de wallet completada: ${action}`, result);
-    // Aquí podríamos recargar los datos del usuario si fuera necesario
+    // Sincronizar el balance después de cualquier acción de wallet
+    await handleSyncBalance();
   };
   
   // Calcular el total de fracciones
-  const totalFractions = Object.values(user?.balances || {}).reduce((sum, amount) => sum + amount, 0);
+  const totalFractions = Object.values(userState?.balances || {}).reduce((sum, amount) => sum + amount, 0);
   
   // Calcular el total de renta reclamable
-  const totalClaimableRent = Object.values(user?.claimable || {}).reduce(
+  const totalClaimableRent = Object.values(userState?.claimable || {}).reduce(
     (sum, amount) => sum + parseFloat(amount), 
     0
   ).toFixed(6);
@@ -62,8 +101,8 @@ export default function Dashboard({ user, onLogout }) {
               </svg>
             </div>
             <div>
-              <p className="font-medium">{user?.email || ''}</p>
-              <p className="text-white/60 text-xs">ID: {user?.userId || ''}</p>
+              <p className="font-medium">{userState?.email || ''}</p>
+              <p className="text-white/60 text-xs">ID: {userState?.userId || ''}</p>
             </div>
           </div>
           
@@ -92,11 +131,11 @@ export default function Dashboard({ user, onLogout }) {
             <div>
               <p className="text-white/60 text-xs">Wallet custodial</p>
               <div className="flex items-baseline">
-                <p className="font-medium">{shortenAddress(user?.wallet?.address)}</p>
+                <p className="font-medium">{shortenAddress(userState?.wallet?.address)}</p>
                 <button 
                   className="ml-2 text-xs text-white/60 hover:text-white"
                   onClick={() => {
-                    const address = user?.wallet?.address;
+                    const address = userState?.wallet?.address;
                     if (address) {
                       navigator.clipboard.writeText(address);
                       alert(`Dirección copiada: ${address}`);
@@ -134,7 +173,11 @@ export default function Dashboard({ user, onLogout }) {
                 ? 'border-indigo-500 text-indigo-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
-            onClick={() => setActiveTab('wallet')}
+            onClick={() => {
+              setActiveTab('wallet');
+              // Sincronizar automáticamente al cambiar a la tab de wallet
+              handleSyncBalance();
+            }}
           >
             Mi Wallet
           </button>
@@ -149,7 +192,7 @@ export default function Dashboard({ user, onLogout }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <p className="text-gray-500 text-sm mb-1">Propiedades</p>
-              <p className="text-3xl font-bold text-gray-900">{Object.keys(user?.balances || {}).length}</p>
+              <p className="text-3xl font-bold text-gray-900">{Object.keys(userState?.balances || {}).length}</p>
             </div>
             
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
@@ -194,7 +237,43 @@ export default function Dashboard({ user, onLogout }) {
         </>
       ) : (
         <>
-          <h2 className="text-xl font-bold text-gray-800 mb-6">Mi Wallet Custodial</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-800">Mi Wallet Custodial</h2>
+            
+            {/* Botón de sincronización destacado en la parte superior */}
+            <button
+              className={`flex items-center ${isSyncing ? 'bg-gray-300' : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-2 rounded-lg shadow-md font-medium transition-colors`}
+              onClick={handleSyncBalance}
+              disabled={isSyncing}
+            >
+              {isSyncing ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Sincronizando...
+                </>
+              ) : (
+                <>
+                  <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7.805v2.205a1 1 0 01-2 0V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13.5v-2.5a1 1 0 012 0v3.975a1 1 0 01-1 1H5.001a1 1 0 0100-2h.008z" clipRule="evenodd" />
+                  </svg>
+                  Sincronizar Balance
+                </>
+              )}
+            </button>
+          </div>
+          
+          {/* Banner de error si hay un problema de sincronización */}
+          {syncError && (
+            <div className="mb-6 p-3 bg-red-50 border border-red-100 text-red-600 rounded-lg flex items-center">
+              <svg className="h-5 w-5 mr-2 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span>Error al sincronizar: {syncError}</span>
+            </div>
+          )}
           
           <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -203,11 +282,11 @@ export default function Dashboard({ user, onLogout }) {
                 <p className="text-gray-500 mt-1 text-sm">Tus fondos están seguros en esta wallet custodial</p>
               </div>
               <div className="mt-2 md:mt-0 bg-gray-100 py-2 px-4 rounded-lg flex items-center">
-                <span className="text-gray-800 font-mono">{user?.wallet?.address || 'No disponible'}</span>
+                <span className="text-gray-800 font-mono">{userState?.wallet?.address || 'No disponible'}</span>
                 <button 
                   className="ml-2 text-gray-500 hover:text-gray-700"
                   onClick={() => {
-                    const address = user?.wallet?.address;
+                    const address = userState?.wallet?.address;
                     if (address) {
                       navigator.clipboard.writeText(address);
                       alert(`Dirección copiada: ${address}`);
@@ -223,24 +302,37 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             </div>
             
-            <h4 className="font-medium text-gray-700 mb-4">Balances disponibles</h4>
+            <div className="mb-6 p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg">
+              <div className="flex items-start">
+                <svg className="h-5 w-5 mt-0.5 mr-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <span>
+                  <strong>Importante:</strong> Los balances mostrados son los reales de la blockchain. Si hay discrepancias, usa el botón de sincronizar.
+                </span>
+              </div>
+            </div>
+            
+            <h4 className="font-medium text-gray-700 mb-4">Balances disponibles {isSyncing && <span className="text-sm text-blue-500">(sincronizando...)</span>}</h4>
             
             <div className="space-y-4">
-              {user?.wallet?.tokenBalances && Object.entries(user.wallet.tokenBalances).map(([token, balance]) => (
+              {userState?.wallet?.tokenBalances && Object.entries(userState.wallet.tokenBalances).map(([token, balance]) => (
                 <div key={token} className="flex justify-between items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                   <div className="flex items-center">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
                       token === 'eUSD' ? 'bg-green-100 text-green-600' :
                       token === 'BTC' ? 'bg-orange-100 text-orange-600' :
+                      token === 'MNT' ? 'bg-purple-100 text-purple-600' :
                       'bg-blue-100 text-blue-600'
                     }`}>
-                      {token === 'eUSD' ? '$' : token === 'BTC' ? '₿' : 'Ξ'}
+                      {token === 'eUSD' ? '$' : token === 'BTC' ? '₿' : token === 'MNT' ? 'M' : 'Ξ'}
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">{token}</p>
                       <p className="text-gray-500 text-sm">
                         {token === 'eUSD' ? 'Mantle USD Stablecoin' : 
-                         token === 'BTC' ? 'Bitcoin' : 'Ethereum'}
+                         token === 'BTC' ? 'Bitcoin' : 
+                         token === 'MNT' ? 'Mantle Token' : 'Ethereum'}
                       </p>
                     </div>
                   </div>
@@ -249,6 +341,7 @@ export default function Dashboard({ user, onLogout }) {
                     <p className="text-gray-500 text-sm">
                       {token === 'eUSD' ? `$${Number(balance).toFixed(2)}` : 
                        token === 'BTC' ? `$${(Number(balance) * 50000).toFixed(2)}` : 
+                       token === 'MNT' ? `$${(Number(balance) * 0.35).toFixed(2)}` :
                        `$${(Number(balance) * 2350).toFixed(2)}`}
                     </p>
                   </div>
@@ -265,7 +358,7 @@ export default function Dashboard({ user, onLogout }) {
                 {showWalletActions ? 'Ocultar opciones' : 'Gestionar fondos'}
               </button>
               <a 
-                href={`https://explorer.sepolia.mantle.xyz/address/${user?.wallet?.address}`}
+                href={`https://explorer.sepolia.mantle.xyz/address/${userState?.wallet?.address}`}
                 target="_blank"
                 rel="noopener noreferrer" 
                 className="bg-white border border-indigo-500 text-indigo-500 hover:bg-indigo-50 py-2 px-4 rounded-lg font-medium transition-colors text-center"
@@ -277,7 +370,7 @@ export default function Dashboard({ user, onLogout }) {
             {/* Componente de acciones de wallet */}
             {showWalletActions && (
               <div className="mt-6">
-                <WalletActions user={user} onActionComplete={handleWalletAction} />
+                <WalletActions user={userState} onActionComplete={handleWalletAction} />
               </div>
             )}
           </div>
@@ -304,7 +397,7 @@ export default function Dashboard({ user, onLogout }) {
           )}
           
           {/* Panel de depuración */}
-          <DebugPanel user={user} />
+          <DebugPanel user={userState} />
         </>
       )}
     </div>

@@ -113,15 +113,7 @@ function saveUserToLocalStorage(email, user) {
 const SIMULATED_USERS = {
   'demo@fractea.app': {
     userId: 'user_demo123',
-    wallet: {
-      address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
-      encryptedPrivateKey: encryptPrivateKey('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'),
-      tokenBalances: {
-        eUSD: '500.00',
-        BTC: '0.002',
-        ETH: '0.5'
-      }
-    },
+    wallet: generateCustodialWallet(), // Generamos wallet dinámicamente para consistencia
     balances: {
       1: 20, // 20 fracciones de la propiedad #1
       2: 10  // 10 fracciones de la propiedad #2
@@ -314,9 +306,25 @@ export async function loginWithEmail(email) {
           tokenBalances: {
             eUSD: '100.00',
             BTC: '0.0005',
-            ETH: '0.01'
+            ETH: '0.01',
+            MNT: '20.0002'
           }
         };
+      } else {
+        // Si la wallet se generó correctamente, asegurarnos de que tenga balances iniciales
+        if (!wallet.tokenBalances) {
+          wallet.tokenBalances = {};
+        }
+        
+        // Asegurarnos de que tenga un balance inicial de MNT para poder hacer demostraciones
+        if (!wallet.tokenBalances.MNT) {
+          wallet.tokenBalances.MNT = '20.0002';
+        }
+        
+        // Asegurarnos de que tenga balances iniciales de otros tokens
+        if (!wallet.tokenBalances.eUSD) wallet.tokenBalances.eUSD = '100.00';
+        if (!wallet.tokenBalances.BTC) wallet.tokenBalances.BTC = '0.0005';
+        if (!wallet.tokenBalances.ETH) wallet.tokenBalances.ETH = '0.01';
       }
       
       console.log(`Usuario nuevo creado para ${email}:`, {
@@ -337,6 +345,16 @@ export async function loginWithEmail(email) {
           2: '0.0001'  // Usuario nuevo tiene 0.0001 eUSD reclamables en propiedad #2
         }
       };
+      
+      // Caso especial: si es el usuario demo, establecer balances iniciales altos
+      if (email === 'demo@fractea.app') {
+        SIMULATED_USERS[email].wallet.tokenBalances = {
+          MNT: '20.0002',
+          eUSD: '500.00',
+          BTC: '0.002',
+          ETH: '0.5'
+        };
+      }
     } else {
       console.log(`Usuario ${email} encontrado en memoria`);
       
@@ -357,11 +375,37 @@ export async function loginWithEmail(email) {
             tokenBalances: {
               eUSD: '100.00',
               BTC: '0.0005',
-              ETH: '0.01'
+              ETH: '0.01',
+              MNT: '20.0002'
             }
           };
         } else {
+          // Configurar balances iniciales
+          if (!wallet.tokenBalances) {
+            wallet.tokenBalances = {};
+          }
+          
+          // Asegurar que tenga MNT
+          if (!wallet.tokenBalances.MNT) {
+            wallet.tokenBalances.MNT = '20.0002';
+          }
+          
+          // Balances iniciales de otros tokens
+          if (!wallet.tokenBalances.eUSD) wallet.tokenBalances.eUSD = '100.00';
+          if (!wallet.tokenBalances.BTC) wallet.tokenBalances.BTC = '0.0005';
+          if (!wallet.tokenBalances.ETH) wallet.tokenBalances.ETH = '0.01';
+          
           SIMULATED_USERS[email].wallet = wallet;
+          
+          // Caso especial: si es el usuario demo, establecer balances iniciales altos
+          if (email === 'demo@fractea.app') {
+            SIMULATED_USERS[email].wallet.tokenBalances = {
+              MNT: '20.0002',
+              eUSD: '500.00',
+              BTC: '0.002',
+              ETH: '0.5'
+            };
+          }
         }
       }
     }
@@ -864,16 +908,83 @@ export async function getTokenBalance(email, tokenSymbol) {
 }
 
 /**
- * Simula un depósito de tokens a la wallet custodial del usuario
+ * Sincroniza el balance de la wallet custodial con el balance real en la blockchain
+ * @param {string} email - Email del usuario
+ * @returns {Promise<Object>} Resultado de la sincronización
+ */
+export async function syncWalletBalance(email) {
+  try {
+    console.log('Sincronizando balance con blockchain para:', email);
+    
+    // Obtener datos del usuario
+    const user = ensureUser(email, 'syncWalletBalance');
+    
+    if (!user || !user.wallet || !user.wallet.address) {
+      console.error('No se pudo obtener la wallet del usuario para sincronizar');
+      throw new Error('Wallet de usuario no encontrada');
+    }
+    
+    // Importar servicios necesarios
+    const { getNativeBalance, getMantleProvider } = await import('../services/blockchain/mantleProvider');
+    
+    // Obtener balance real de la blockchain para MNT
+    const realMntBalance = await getNativeBalance(user.wallet.address, 'SEPOLIA');
+    console.log('Balance real en blockchain:', realMntBalance, 'MNT');
+    
+    // Verificar si la wallet es válida intentando obtener el balance mediante el provider
+    const provider = getMantleProvider('SEPOLIA');
+    const rawBalance = await provider.getBalance(user.wallet.address);
+    const formattedBalance = ethers.formatEther(rawBalance);
+    
+    console.log('Balance verificado con provider:', formattedBalance, 'MNT');
+    
+    // Comprobar si los valores son consistentes
+    if (parseFloat(realMntBalance) !== parseFloat(formattedBalance)) {
+      console.warn('Inconsistencia entre los balances obtenidos:', {
+        serviceBalance: realMntBalance,
+        providerBalance: formattedBalance
+      });
+      // Usar el balance del provider como fuente de verdad en caso de discrepancia
+      user.wallet.tokenBalances['MNT'] = formattedBalance;
+    } else {
+      // Actualizar balance en el sistema local
+      if (!user.wallet.tokenBalances) {
+        user.wallet.tokenBalances = {};
+      }
+      
+      // Guardar balance actualizado
+      user.wallet.tokenBalances['MNT'] = realMntBalance;
+    }
+    
+    // Guardar en localStorage
+    saveUserToLocalStorage(email, user);
+    
+    // Actualizar en memoria
+    SIMULATED_USERS[email] = user;
+    
+    console.log('Balance sincronizado correctamente:', user.wallet.tokenBalances['MNT'], 'MNT');
+    
+    return {
+      success: true,
+      address: user.wallet.address,
+      tokenBalances: user.wallet.tokenBalances
+    };
+  } catch (error) {
+    console.error('Error al sincronizar balance con blockchain:', error);
+    throw error;
+  }
+}
+
+/**
+ * Maneja depósitos de tokens a la wallet custodial del usuario.
+ * Ahora incluye una opción para realizar depósitos reales desde una wallet externa.
  * @param {string} email - Email del usuario
  * @param {string} tokenSymbol - Símbolo del token a depositar
  * @param {string} amount - Cantidad a depositar
+ * @param {Object} options - Opciones adicionales como privateKey para transacciones reales
  * @returns {Object} Resultado de la operación
  */
-export async function depositTokens(email, tokenSymbol, amount) {
-  // Simular delay de procesamiento
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
+export async function depositTokens(email, tokenSymbol, amount, options = {}) {
   const user = ensureUser(email, 'depositTokens');
   
   if (!user) {
@@ -893,34 +1004,125 @@ export async function depositTokens(email, tokenSymbol, amount) {
     user.wallet.tokenBalances[tokenSymbol] = '0.00';
   }
   
-  // Convertir a número para hacer la suma
-  const currentBalance = parseFloat(user.wallet.tokenBalances[tokenSymbol]);
-  const amountToAdd = parseFloat(amount);
-  
-  // Actualizar el balance
-  user.wallet.tokenBalances[tokenSymbol] = (currentBalance + amountToAdd).toFixed(2);
-  
-  // Guardar en localStorage
-  saveUserToLocalStorage(email, user);
-  
-  // Actualizar en memoria
-  SIMULATED_USERS[email] = user;
-  
-  // Retornar información de la transacción
-  const txHash = '0x' + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
-  
-  return {
-    success: true,
-    txHash,
-    amount,
-    newBalance: user.wallet.tokenBalances[tokenSymbol],
-    tokenSymbol,
-    timestamp: new Date().toISOString()
-  };
+  // Si se proporciona una clave privada, realizar una transacción real desde una wallet externa
+  if (options.privateKey) {
+    try {
+      console.log('Iniciando depósito real desde wallet externa');
+      
+      // Importar servicios de transacciones
+      const { getMantleProvider } = await import('../services/blockchain/mantleProvider');
+      
+      // Conectar a Mantle Sepolia
+      const provider = getMantleProvider('SEPOLIA');
+      
+      // Formatear la clave con 0x si es necesario
+      const formattedKey = options.privateKey.startsWith('0x') 
+        ? options.privateKey 
+        : `0x${options.privateKey}`;
+      
+      // Crear instancia de la wallet externa
+      const externalWallet = new ethers.Wallet(formattedKey, provider);
+      
+      // Dirección de la wallet custodial como destino
+      const custodialAddress = user.wallet.address;
+      
+      // Crear transacción
+      const tx = {
+        to: custodialAddress,
+        value: ethers.parseEther(amount)
+      };
+      
+      // Estimar gas para la transacción
+      try {
+        const fromAddress = await externalWallet.getAddress();
+        const estimatedGas = await provider.estimateGas({
+          from: fromAddress,
+          to: custodialAddress,
+          value: tx.value
+        });
+        
+        // Añadir 20% de margen de seguridad
+        tx.gasLimit = estimatedGas * 120n / 100n;
+        console.log(`Gas estimado para depósito: ${tx.gasLimit.toString()}`);
+      } catch (error) {
+        console.warn('Error al estimar gas para depósito, usando valor predeterminado:', error);
+        tx.gasLimit = 100000n;
+      }
+      
+      // Enviar la transacción real
+      console.log('Enviando transacción de depósito...');
+      const txResponse = await externalWallet.sendTransaction(tx);
+      console.log('Transacción enviada:', txResponse.hash);
+      
+      // Esperar a que se confirme
+      console.log('Esperando confirmación...');
+      const receipt = await txResponse.wait();
+      console.log('Depósito confirmado en bloque:', receipt.blockNumber);
+      
+      // Convertir a número para hacer la suma
+      const currentBalance = parseFloat(user.wallet.tokenBalances[tokenSymbol]);
+      const amountToAdd = parseFloat(amount);
+      
+      // Actualizar el balance
+      user.wallet.tokenBalances[tokenSymbol] = (currentBalance + amountToAdd).toFixed(2);
+      
+      // Guardar en localStorage
+      saveUserToLocalStorage(email, user);
+      
+      // Actualizar en memoria
+      SIMULATED_USERS[email] = user;
+      
+      return {
+        success: true,
+        txHash: txResponse.hash,
+        amount,
+        newBalance: user.wallet.tokenBalances[tokenSymbol],
+        tokenSymbol,
+        timestamp: new Date().toISOString(),
+        blockNumber: receipt.blockNumber,
+        network: 'SEPOLIA'
+      };
+    } catch (error) {
+      console.error('Error al realizar depósito real:', error);
+      throw new Error(`Error en depósito blockchain: ${error.message}`);
+    }
+  } 
+  // Si no hay clave privada, simular el depósito como antes
+  else {
+    // Simular delay de procesamiento
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Convertir a número para hacer la suma
+    const currentBalance = parseFloat(user.wallet.tokenBalances[tokenSymbol]);
+    const amountToAdd = parseFloat(amount);
+    
+    // Actualizar el balance
+    user.wallet.tokenBalances[tokenSymbol] = (currentBalance + amountToAdd).toFixed(2);
+    
+    // Guardar en localStorage
+    saveUserToLocalStorage(email, user);
+    
+    // Actualizar en memoria
+    SIMULATED_USERS[email] = user;
+    
+    // Retornar información de la transacción simulada
+    const txHash = '0x' + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+    
+    return {
+      success: true,
+      txHash,
+      amount,
+      newBalance: user.wallet.tokenBalances[tokenSymbol],
+      tokenSymbol,
+      timestamp: new Date().toISOString(),
+      network: 'SIMULATED'
+    };
+  }
 }
 
 /**
- * Simula un retiro de tokens de la wallet custodial del usuario
+ * Simula un retiro de tokens de la wallet custodial del usuario.
+ * Para direcciones de blockchain, ahora usa transacciones reales en Mantle Sepolia.
  * @param {string} email - Email del usuario
  * @param {string} tokenSymbol - Símbolo del token a retirar
  * @param {string} amount - Cantidad a retirar
@@ -928,47 +1130,311 @@ export async function depositTokens(email, tokenSymbol, amount) {
  * @returns {Object} Resultado de la operación
  */
 export async function withdrawTokens(email, tokenSymbol, amount, destination) {
-  // Simular delay de procesamiento
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
+  // Obtener el usuario
   const user = ensureUser(email, 'withdrawTokens');
   
   if (!user || !user.wallet || !user.wallet.tokenBalances) {
     throw new Error('Wallet de usuario no encontrada');
   }
   
+  // Para transacciones blockchain, sincronizar balance primero
+  if (destination && destination.startsWith('0x')) {
+    try {
+      console.log('Sincronizando balance real de blockchain antes de retirar');
+      await syncWalletBalance(email);
+      
+      // Obtener el usuario actualizado después de la sincronización
+      const updatedUser = ensureUser(email, 'withdrawTokens-afterSync');
+      if (updatedUser && updatedUser.wallet && updatedUser.wallet.tokenBalances) {
+        user.wallet.tokenBalances = updatedUser.wallet.tokenBalances;
+      }
+    } catch (syncError) {
+      console.warn('Error al sincronizar balance, continuando con balance local:', syncError);
+      // Continuar con el balance almacenado localmente
+    }
+  }
+  
   // Obtener el balance actual
   const currentBalance = parseFloat(user.wallet.tokenBalances[tokenSymbol] || '0.00');
   const amountToWithdraw = parseFloat(amount);
+  
+  console.log(`Balance actual para retirar: ${currentBalance} ${tokenSymbol}, monto a retirar: ${amountToWithdraw}`);
   
   // Verificar que haya suficientes fondos
   if (currentBalance < amountToWithdraw) {
     throw new Error(`Balance insuficiente. Tienes ${currentBalance} ${tokenSymbol}`);
   }
   
-  // Actualizar el balance
-  user.wallet.tokenBalances[tokenSymbol] = (currentBalance - amountToWithdraw).toFixed(2);
+  // Demo mode - si el usuario es el de demo
+  const isDemoUser = email === 'demo@fractea.app';
   
-  // Guardar en localStorage
-  saveUserToLocalStorage(email, user);
+  let txHash;
   
-  // Actualizar en memoria
-  SIMULATED_USERS[email] = user;
-  
-  // Retornar información de la transacción
-  const txHash = destination.startsWith('0x') 
-    ? '0x' + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10)
-    : 'BANK_TRANSFER_' + Math.random().toString(36).substring(2, 10);
-  
-  return {
-    success: true,
-    txHash,
-    amount,
-    destination,
-    newBalance: user.wallet.tokenBalances[tokenSymbol],
-    tokenSymbol,
-    timestamp: new Date().toISOString()
-  };
+  // Si el destino es una dirección de blockchain, realizar transacción real
+  if (destination && destination.startsWith('0x')) {
+    try {
+      console.log('Iniciando retiro real a blockchain:', { destination, amount });
+      
+      // Obtener la clave privada
+      const privateKey = decryptPrivateKey(user.wallet.encryptedPrivateKey);
+      
+      // Verificar que tenemos la clave privada correcta
+      console.log('Usando clave privada para transacción (oculta por seguridad):', 
+        privateKey.substring(0, 6) + '...' + privateKey.substring(privateKey.length - 4));
+      
+      // Crear una wallet de ethers para verificar que la dirección coincide
+      const checkWallet = new ethers.Wallet(privateKey);
+      console.log('Verificación de dirección:', {
+        configuradaEnUsuario: user.wallet.address,
+        generadaDesdePrivateKey: checkWallet.address,
+        coincide: checkWallet.address.toLowerCase() === user.wallet.address.toLowerCase()
+      });
+      
+      if (checkWallet.address.toLowerCase() !== user.wallet.address.toLowerCase()) {
+        console.error('Error crítico: La clave privada no corresponde a la dirección configurada.');
+        console.log('Dirección esperada:', user.wallet.address, 'Dirección obtenida de private key:', checkWallet.address);
+        
+        // En este punto, la clave privada no corresponde a la dirección de la wallet
+        // Esto no debería ocurrir si todo está correctamente generado
+        throw new Error('La clave privada no corresponde a la dirección de la wallet. Contacte al soporte técnico.');
+      }
+      
+      // Importar servicios de transacciones
+      const { getMantleProvider, getNetworkFeeData } = await import('../services/blockchain/mantleProvider');
+      
+      // Conectar a Mantle Sepolia
+      const provider = getMantleProvider('SEPOLIA');
+      const wallet = new ethers.Wallet(privateKey, provider);
+      
+      // Comprobar si la wallet custodial tiene fondos reales
+      const walletBalance = await provider.getBalance(wallet.address);
+      const formattedBalance = ethers.formatEther(walletBalance);
+      console.log(`Balance real de la wallet ${wallet.address}: ${formattedBalance} MNT`);
+      
+      // Verificar si hay fondos suficientes para la transacción
+      if (parseFloat(formattedBalance) < parseFloat(amount)) {
+        if (isDemoUser) {
+          console.warn('Usuario demo con fondos insuficientes, realizando simulación en lugar de transacción real');
+          // Simular transacción exitosa para demo
+          // Actualizar el balance local
+          user.wallet.tokenBalances[tokenSymbol] = (currentBalance - amountToWithdraw).toFixed(2);
+          
+          // Guardar en localStorage
+          saveUserToLocalStorage(email, user);
+          
+          // Actualizar en memoria
+          SIMULATED_USERS[email] = user;
+          
+          // Simulación de hash de transacción
+          txHash = 'DEMO_TX_' + Math.random().toString(36).substring(2, 10);
+          
+          return {
+            success: true,
+            txHash,
+            amount,
+            destination,
+            newBalance: user.wallet.tokenBalances[tokenSymbol],
+            tokenSymbol,
+            timestamp: new Date().toISOString(),
+            blockNumber: Math.floor(Math.random() * 1000000) + 9000000,
+            network: 'SEPOLIA_DEMO'
+          };
+        } else {
+          throw new Error(`Balance insuficiente. Tienes ${formattedBalance} MNT en la blockchain.`);
+        }
+      }
+      
+      // SOLUCIÓN: Replicar exactamente la lógica de gas del script test-sepolia-tx-v6.js que funciona
+      console.log('Configurando transacción con la lógica exitosa del script de prueba...');
+      
+      // Definir valores para cada tipo de token basados en transacciones exitosas reales
+      const GAS_CONFIG = {
+        'MNT': {
+          base: 86000000n,       // ~86 millones basado en transacciones exitosas reales
+          multiplier: 120n,      // 20% extra como margen de seguridad (igual que el script exitoso)
+          baseGasPrice: ethers.parseUnits('1.04', 'gwei'),
+          priorityFee: ethers.parseUnits('1', 'gwei')
+        },
+        'ERC20': {
+          base: 130000000n,
+          multiplier: 120n,
+          baseGasPrice: ethers.parseUnits('1.04', 'gwei'),
+          priorityFee: ethers.parseUnits('1', 'gwei')
+        },
+        'ERC1155': {
+          base: 220000000n,
+          multiplier: 120n,
+          baseGasPrice: ethers.parseUnits('1.04', 'gwei'),
+          priorityFee: ethers.parseUnits('1', 'gwei')
+        },
+        'default': {
+          base: 86000000n,
+          multiplier: 120n,
+          baseGasPrice: ethers.parseUnits('1.04', 'gwei'),
+          priorityFee: ethers.parseUnits('1', 'gwei')
+        }
+      };
+      
+      // Obtener la configuración para el tipo de token actual
+      const gasConfig = GAS_CONFIG[tokenSymbol] || GAS_CONFIG['default'];
+      
+      // Estimar gas exactamente como lo hace el script exitoso
+      let estimatedGas;
+      let finalGasLimit;
+      
+      try {
+        // Preparar datos básicos para estimación (igual que el script exitoso)
+        const gasEstimationTx = {
+          from: wallet.address,
+          to: destination,
+          value: ethers.parseEther(amount)
+        };
+        
+        console.log('Estimando gas usando la misma estrategia del script exitoso...');
+        const initialEstimate = await provider.estimateGas(gasEstimationTx);
+        console.log(`Gas estimado por la red: ${initialEstimate.toString()}`);
+        
+        // Aplicar factor de seguridad (exactamente como el script exitoso)
+        finalGasLimit = initialEstimate * gasConfig.multiplier / 100n;
+        console.log(`Gas final con ${gasConfig.multiplier}% de margen: ${finalGasLimit.toString()}`);
+      } catch (estimationError) {
+        console.warn('Error al estimar gas, usando valor base conocido:', estimationError);
+        // Usar valores base que funcionaron en transacciones reales
+        finalGasLimit = gasConfig.base;
+        console.log(`Usando gas base para ${tokenSymbol}: ${finalGasLimit.toString()}`);
+      }
+      
+      // Configurar la transacción exactamente como el script exitoso
+      const tx = {
+        to: destination,
+        value: ethers.parseEther(amount),
+        gasLimit: finalGasLimit,
+        type: 2,  // EIP-1559
+        maxFeePerGas: gasConfig.baseGasPrice,
+        maxPriorityFeePerGas: gasConfig.priorityFee
+      };
+      
+      console.log('Configuración final replicando script exitoso:', {
+        to: tx.to,
+        value: ethers.formatEther(tx.value),
+        gasLimit: tx.gasLimit.toString(),
+        type: tx.type,
+        maxFeePerGas: ethers.formatUnits(tx.maxFeePerGas, 'gwei') + ' gwei',
+        maxPriorityFeePerGas: ethers.formatUnits(tx.maxPriorityFeePerGas, 'gwei') + ' gwei'
+      });
+      
+      // Calcular costo estimado para verificar fondos
+      const gasCost = tx.gasLimit * tx.maxFeePerGas;
+      const totalCost = ethers.parseEther(amount) + gasCost;
+      
+      console.log('Análisis de costos basado en tx exitosa:', {
+        gasLimit: tx.gasLimit.toString(),
+        maxFeePerGas: ethers.formatUnits(tx.maxFeePerGas, 'gwei') + ' gwei',
+        gasCostEstimado: ethers.formatEther(gasCost) + ' MNT',
+        montoTransacción: amount + ' MNT',
+        costoTotalEstimado: ethers.formatEther(totalCost) + ' MNT',
+        balanceDisponible: formattedBalance + ' MNT'
+      });
+      
+      // Verificar fondos con advertencia
+      if (walletBalance < totalCost) {
+        const errorMsg = `Balance insuficiente para cubrir la transacción y el gas. Tienes ${formattedBalance} MNT. Necesitas al menos ${ethers.formatEther(totalCost)} MNT. Obtén MNT gratuito en: https://faucet.sepolia.mantle.xyz`;
+        console.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // Enviar la transacción exactamente igual a la exitosa
+      console.log('Enviando transacción con parámetros de tx exitosa...');
+      
+      try {
+        const txResponse = await wallet.sendTransaction(tx);
+        console.log('¡Transacción enviada exitosamente!', txResponse.hash);
+        
+        // Actualizar el balance local después de la transacción exitosa
+        // Sincronizar nuevamente para tener el balance actualizado
+        await syncWalletBalance(email);
+        
+        // Obtener el balance actualizado
+        const updatedUserAfterTx = ensureUser(email, 'withdrawTokens-afterTx');
+        const newBalance = updatedUserAfterTx.wallet.tokenBalances[tokenSymbol];
+        
+        // Construir el resultado
+        return {
+          success: true,
+          txHash: txResponse.hash,
+          amount,
+          destination,
+          newBalance: newBalance,
+          tokenSymbol,
+          timestamp: new Date().toISOString(),
+          blockNumber: txResponse.blockNumber,
+          network: 'SEPOLIA'
+        };
+      } catch (error) {
+        console.error('Error al realizar transacción real:', error);
+        
+        // Mejorar los mensajes de error para el usuario
+        let errorMessage = error.message;
+        
+        // Errores específicos de gas y fondos
+        if (errorMessage.includes('intrinsic gas too low')) {
+          errorMessage = 'Gas insuficiente para la transacción. Necesitas MNT para pagar las comisiones de red. Obtén MNT gratuito en: https://faucet.sepolia.mantle.xyz';
+        } else if (errorMessage.includes('insufficient funds')) {
+          errorMessage = 'Fondos insuficientes para completar la transacción y pagar las comisiones. Obtén MNT gratuito en: https://faucet.sepolia.mantle.xyz';
+        } else if (errorMessage.includes('failed to forward tx to sequencer')) {
+          errorMessage = 'Error al enviar transacción a la red Mantle. Tu wallet necesita MNT para pagar comisiones. Obtén MNT gratuito en: https://faucet.sepolia.mantle.xyz';
+        }
+        
+        throw new Error(`Error en transacción blockchain: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('Error al realizar transacción real:', error);
+      
+      // Mejorar los mensajes de error para el usuario
+      let errorMessage = error.message;
+      
+      // Errores específicos de gas y fondos
+      if (errorMessage.includes('intrinsic gas too low')) {
+        errorMessage = 'Gas insuficiente para la transacción. Necesitas MNT para pagar las comisiones de red. Obtén MNT gratuito en: https://faucet.sepolia.mantle.xyz';
+      } else if (errorMessage.includes('insufficient funds')) {
+        errorMessage = 'Fondos insuficientes para completar la transacción y pagar las comisiones. Obtén MNT gratuito en: https://faucet.sepolia.mantle.xyz';
+      } else if (errorMessage.includes('failed to forward tx to sequencer')) {
+        errorMessage = 'Error al enviar transacción a la red Mantle. Tu wallet necesita MNT para pagar comisiones. Obtén MNT gratuito en: https://faucet.sepolia.mantle.xyz';
+      }
+      
+      throw new Error(`Error en transacción blockchain: ${errorMessage}`);
+    }
+  } 
+  // Para transferencias bancarias u otros destinos, mantener la simulación
+  else {
+    // Simular delay de procesamiento
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Actualizar el balance
+    user.wallet.tokenBalances[tokenSymbol] = (currentBalance - amountToWithdraw).toFixed(2);
+    
+    // Guardar en localStorage
+    saveUserToLocalStorage(email, user);
+    
+    // Actualizar en memoria
+    SIMULATED_USERS[email] = user;
+    
+    // Simular hash para transferencias que no son a blockchain
+    txHash = destination === 'bank' 
+      ? 'BANK_TRANSFER_' + Math.random().toString(36).substring(2, 10)
+      : 'INTERNAL_' + Math.random().toString(36).substring(2, 10);
+    
+    return {
+      success: true,
+      txHash,
+      amount,
+      destination,
+      newBalance: user.wallet.tokenBalances[tokenSymbol],
+      tokenSymbol,
+      timestamp: new Date().toISOString(),
+      network: 'SIMULATED'
+    };
+  }
 }
 
 /**

@@ -170,6 +170,78 @@ export default function WalletEducation() {
           </li>
         </ul>
       </div>
+      
+      {/* Nueva sección sobre cómo obtener MNT de testnet */}
+      <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
+        <h4 className="font-medium text-blue-800 mb-2">Obtener MNT para pruebas</h4>
+        <p className="text-blue-700 mb-3">
+          Para probar transacciones reales en la red Mantle Sepolia (testnet), puedes obtener tokens MNT gratuitos de prueba:
+        </p>
+        <ol className="list-decimal pl-5 text-blue-700 space-y-2 mb-3">
+          <li>
+            Visita el <a 
+              href="https://faucet.sepolia.mantle.xyz/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-medium underline hover:text-blue-900"
+            >
+              Faucet oficial de Mantle Sepolia
+            </a>
+          </li>
+          <li>Conecta tu wallet personal de MetaMask u otra wallet compatible</li>
+          <li>Solicita MNT de prueba (cada solicitud otorga 0.5 MNT)</li>
+          <li>Envía estos MNT a tu dirección de wallet custodial en Fractea</li>
+          <li>Haz clic en "Sincronizar balance" para ver tus fondos en Fractea</li>
+        </ol>
+        <p className="text-blue-700 text-sm">
+          <strong>Nota:</strong> Los tokens de testnet no tienen valor real y solo están disponibles para pruebas.
+        </p>
+      </div>
+      
+      <div className="mb-6">
+        <h4 className="font-medium text-gray-800 mb-2">Beneficios del modelo Web 2.5</h4>
+        <p className="text-gray-600 mb-3">
+          Fractea usa un modelo "Web 2.5" que ofrece lo mejor de ambos mundos:
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="border border-gray-200 rounded-lg p-3">
+            <h5 className="font-medium text-gray-700 mb-2">Facilidad de Web2</h5>
+            <ul className="list-disc pl-5 text-gray-600 space-y-1">
+              <li>Inicio de sesión con email</li>
+              <li>No necesitas gestionar claves privadas</li>
+              <li>Experiencia de usuario intuitiva</li>
+              <li>Recuperación de cuenta sencilla</li>
+            </ul>
+          </div>
+          <div className="border border-gray-200 rounded-lg p-3">
+            <h5 className="font-medium text-gray-700 mb-2">Beneficios de Web3</h5>
+            <ul className="list-disc pl-5 text-gray-600 space-y-1">
+              <li>Propiedad real de activos tokenizados</li>
+              <li>Transacciones verificables en blockchain</li>
+              <li>Posibilidad de transferir a wallets externas</li>
+              <li>Transparencia en todas las operaciones</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <h4 className="font-medium text-gray-800 mb-2">¿Quieres usar tu propia wallet?</h4>
+        <p className="text-gray-600 mb-3">
+          Si prefieres tener control total sobre tus claves privadas, puedes:
+        </p>
+        <ol className="list-decimal pl-5 text-gray-600 space-y-1">
+          <li>Crear una wallet no-custodial como MetaMask, Trust Wallet o similar</li>
+          <li>Transferir tus activos desde Fractea a tu wallet personal</li>
+          <li>Gestionar tus propias claves y seguridad</li>
+        </ol>
+        <div className="mt-4 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+          <p className="text-yellow-800 text-sm">
+            <strong>Importante:</strong> Si decides usar tu propia wallet, recuerda que serás 
+            completamente responsable de la seguridad de tus claves privadas y fondos.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
