@@ -1,0 +1,25 @@
+{
+  "scripts": {
+    "test": "jest",
+    "test:wallet": "jest tests/wallet",
+    "test:wallet:unit": "jest tests/wallet/wallet.unit.test.js",
+    "test:wallet:core": "jest tests/wallet/wallet.core.test.js",
+    "test:wallet:integration": "jest tests/wallet/wallet.integration.test.js",
+    "test:wallet:ui": "jest tests/wallet/wallet.ui.test.js",
+    "test:wallet:error": "jest tests/wallet/wallet.error.test.js",
+    "test:wallet:dashboard": "jest tests/wallet/dashboard.test.js",
+    "test:wallet:coverage": "jest tests/wallet --coverage"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.1",
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-react": "^7.27.1",
+    "@jest/globals": "^29.7.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^14.3.1",
+    "@testing-library/user-event": "^14.6.1",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
